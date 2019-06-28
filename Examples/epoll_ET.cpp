@@ -21,7 +21,7 @@
 
 
 #define MAX_EVENTS 10
-#define PORT 8080
+#define PORT 3389
 #define BUFSIZE 1024
 
 void setnonblocking(int sockfd)
@@ -33,7 +33,8 @@ void setnonblocking(int sockfd)
         // exit(1);
     }
     opts |= O_NONBLOCK;
-    if (fcntl(sockfd, F_SETFL, flag) < 0)
+    if (fcntl(sockfd, F_SETFL, opts) < 0)
+    if (fcntl(sockfd, F_SETFL, opts) < 0)
     {
         perror("set flag.");
         // exit(1);
@@ -43,9 +44,9 @@ void setnonblocking(int sockfd)
 int main()
 {
     epoll_event oneEvent, events[MAX_EVENTS];
-    int addrlen, listenfd, connfd;
+    int listenfd, connfd;
     sockaddr_in servaddr, cliaddr;
-    addrlen = sizeof sockaddr_in;
+    socklen_t addrlen = sizeof servaddr;
     char buf[BUFSIZE];
 
     if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -68,7 +69,7 @@ int main()
     {
         perror("Listen error.");
     }
-    int epfd = epoll_create(MAX_EVENT);
+    int epfd = epoll_create(MAX_EVENTS);
     if (epfd < 0)
     {
         perror("epoll creation.");
@@ -82,7 +83,7 @@ int main()
 
     for (;;)
     {
-        int nready = epoll_wait(epfd, events, MAX_EVENT, -1);
+        int nready = epoll_wait(epfd, events, MAX_EVENTS, -1);
         if (nready < 0)
         {
             perror("epoll_wait error.");
@@ -93,14 +94,15 @@ int main()
             int fd = events[i].data.fd;
             if (fd == listenfd)
             {
-                if ((connfd = accept(listenfd, reinterpret_cast<sockaddr *>(servaddr), &addrlen)) > 0)
+                if ((connfd = accept(listenfd, reinterpret_cast<sockaddr *>(&servaddr), &addrlen)) > 0)
                 {
                     memset(&oneEvent, 0, sizeof oneEvent);
-                    oneEvent.evnets = EPOLLIN | EPOLLET;
-                    oneEvnet.data.fd = connfd;
-                    if (epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &oneEvent) < 0)  // 注册accpect到的FD
+                    oneEvent.events = EPOLLIN | EPOLLET;
+                    oneEvent.data.fd = connfd;
+                    setnonblocking(connfd);
+                    if (epoll_ctl(epfd, EPOLL_CTL_ADD, connfd, &oneEvent) < 0)  // 注册accpect到的FD
                     {
-                        if (errno != EAGAIN && errno != ECONNABORTD && errno != EPROTO && errno != EINTR)
+                        if (errno != EAGAIN && errno != EPROTO && errno != EINTR)
                             perror("epoll creation.");
                     }
                 }
@@ -109,7 +111,7 @@ int main()
                     perror("accept error.");
                 }
             }
-            else if (events[i].enents & EPOLLIN)
+            else if (events[i].events & EPOLLIN)
             {
                 int n =0;
                 int nread = 0;
@@ -122,22 +124,22 @@ int main()
                     perror("read error");
                 }
                 memset(&oneEvent, 0, sizeof oneEvent);
-                oneEvent.evnets = events[i].evnets | EPOLLOUT;
-                oneEvnet.data.fd = fd;
-                if (epoll_ctl(epfd, EPOLL_CTL_MOD, &oneEvent) < 0)
+                oneEvent.events = events[i].events | EPOLLOUT;
+                oneEvent.data.fd = fd;
+                if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &oneEvent) < 0)
                 {
                     perror("epoll_ctl: mod");
                 }
             }
-            else if (event[i].enent == EPOLLOUT)
+            else if (events[i].events & EPOLLOUT)
             {
                 memset(&buf, 0, sizeof buf);
-                sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\nHello World", 11);
+                sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n小杰你好啊:)", 17);
                 int nwrite, datasize = strlen(buf);
                 int n = datasize;
                 while (n > 0)
                 {
-                    nwrite = write(fd, buf + data_size - n, n);
+                    nwrite = write(fd, buf + datasize - n, n);
                     if (nwrite == -1 && errno != EAGAIN)
                     {
                         perror("write error");
