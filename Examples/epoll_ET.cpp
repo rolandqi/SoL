@@ -74,7 +74,7 @@ int main()
     {
         perror("epoll creation.");
     }
-    oneEvent.events = EPOLLIN;
+    oneEvent.events = EPOLLIN | EPOLLET;  // TODO 测试这个为ET的情况
     oneEvent.data.fd = listenfd;
     if (epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &oneEvent) < 0)
     {
@@ -124,7 +124,7 @@ int main()
                     perror("read error");
                 }
                 memset(&oneEvent, 0, sizeof oneEvent);
-                oneEvent.events = events[i].events | EPOLLOUT;
+                oneEvent.events = events[i].events | EPOLLOUT;  // TODO 如果这个地方直接放EPOLLOUT， 不与上之前的events会怎样？
                 oneEvent.data.fd = fd;
                 if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &oneEvent) < 0)
                 {
@@ -134,7 +134,7 @@ int main()
             else if (events[i].events & EPOLLOUT)
             {
                 memset(&buf, 0, sizeof buf);
-                sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n小杰你好啊:)", 17);
+                sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n小杰你好啊:)", 17);  // TODO 测试为什么会一直调用这个write.
                 int nwrite, datasize = strlen(buf);
                 int n = datasize;
                 while (n > 0)
