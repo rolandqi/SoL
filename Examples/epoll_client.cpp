@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
 #include <sys/sendfile.h>
@@ -31,7 +32,7 @@ void do_read(int epollfd, int fd, int sockfd, char *buf);
 void do_write(int epollfd, int fd, int sockfd, char *buf);
 void add_event(int epollfd, int fd, int state);
 void delete_event(int epollfd, int fd, int state);
-void moidfy_event(int epollfd, int fd, int state);
+void modify_event(int epollfd, int fd, int state);
 void setnonblocking(int sockfd);
 
 int count = 0;
@@ -39,27 +40,27 @@ int count = 0;
 int main (int argc, char*argv[])
 {
     sockaddr_in servaddr;
-    int sockfd = sock(AF_INET, SOCKET_STREAM, 0);
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     bzero(&servaddr, sizeof servaddr);
     inet_pton(AF_INET, IPADDRESS, &servaddr.sin_addr);
     servaddr.sin_family = AF_INET;
-    connect(sockfd, reinterpret_cast<sockaddr *>(servddr), sizeof servaddr);   // client 连接到服务器，三次握手成功之后才返回
+    connect(sockfd, reinterpret_cast<sockaddr *>(&servaddr), sizeof servaddr);   // client 连接到服务器，三次握手成功之后才返回
     handle_connection(sockfd);
-    colse(sockfd);
+    close(sockfd);
     return 0;
 }
 
 void handle_connection(int sockfd)
 {
     epoll_event events[EPOLLEVENTS];
-    memset(&event, 0, sizeof(epoll_event) * EPOLLEVENTS);
+    memset(&events, 0, sizeof(epoll_event) * EPOLLEVENTS);
     char buf[MAXSIZE];
     int epollfd = epoll_create(EPOLLEVENTS);
     add_event(epollfd, sockfd, EPOLLIN);
     while (1)
     {
-        int nready = epoll_wait(epollfd, &events, EPOLLEVENTS, -1);
-        handle_events(epollfd, *events, nready, sockfd, buf);
+        int nready = epoll_wait(epollfd, events, EPOLLEVENTS, -1);  // 注意，这个地方调用的不是&events 而是 events， 因为events是一个数组
+        handle_events(epollfd, events, nready, sockfd, buf);
     }
     close(epollfd);
 }
@@ -75,7 +76,7 @@ void handle_events(int epollfd, struct epoll_event *events, int nready, int sock
         }
         if(events[i].events & EPOLLOUT)
         {
-            do_write(epollfd, fdm sockfd, buf);
+            do_write(epollfd, fd, sockfd, buf);
         }
     }
 }
@@ -110,7 +111,7 @@ void do_read(int epollfd, int fd, int sockfd, char *buf)
     }
     else if (nread == 0)
     {
-        perror("read but server closed!")
+        perror("read but server closed!");
         close(fd);
     }
     else
