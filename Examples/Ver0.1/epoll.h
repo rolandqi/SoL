@@ -12,6 +12,6 @@ int epoll_init();
 int epoll_add(int epollfd, int fd, void *request, UINT_32 events);
 int epoll_modify(int epollfd, int fd, void *request, UINT_32 events);
 int epoll_delete(int epollfd, int fd, void *request, UINT_32 events);
-int epoll_waits(int epollfd, int fd, std::epoll_event *events, int max_events, int timeout);
+int epoll_waits(int epollfd, int fd, epoll_event *events, int max_events, int timeout);
 
 #endif

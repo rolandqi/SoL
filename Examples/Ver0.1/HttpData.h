@@ -58,7 +58,7 @@ enum HeadersState
 class MimeType
 {
 private:
-    static pthread_mutex_t mutexLock = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t mutexLock;
     static void init();
     MimeType();
     MimeType& operator=(const MimeType&);
@@ -101,7 +101,7 @@ private:
     bool keep_alive;
     std::unordered_map<std::string, std::string> headers;
     mytimer *timer;
-    static pthread_mutex_t requestLock = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t requestLock;
 
     int parse_URI();
     int parse_Headers();

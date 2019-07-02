@@ -2,6 +2,7 @@
 #define THREADPOOL_H
 
 #include <pthread.h>
+#include <vector>
 
 using namespace std;
 
@@ -55,7 +56,7 @@ struct threadpool_t
     pthread_mutex_t mutexLock;
     pthread_cond_t condLock;
     pthread_t *threads;
-    threadpool_task_t *queue;
+    vector<threadpool_task_t> queue;
     int thread_count;
     int queue_size;
     int head;

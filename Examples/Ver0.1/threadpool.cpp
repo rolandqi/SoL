@@ -11,7 +11,7 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
         return NULL;
     }
 
-    poll  = new threadpool_t;
+    pool  = new threadpool_t;
     pool->thread_count = 0;
     pool->queue_size = queue_size;
     pool->count = 0;
@@ -20,25 +20,25 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
     pool->shutdown = 0;
     pool->started = 0;
     pool->threads = new pthread_t[thread_count];
-    pool->quieue = new vector<threadpool_task_t>(queue_size);  // 我在想更好的方法可能是用std::queue, 但是应该如何维护queue的最大size？
+    pool->queue = vector<threadpool_task_t>(queue_size);  // 我在想更好的方法可能是用std::queue, 但是应该如何维护queue的最大size？
     
     if (pthread_mutex_init(&(pool->mutexLock), NULL) != 0 ||
-    pthread_cond_init(&(pool->condLock), nullptr) != 0 ||)
+    pthread_cond_init(&(pool->condLock), nullptr) != 0)
     {
         if (pool != NULL) 
-            {
-                threadpool_free(pool);
-            }
+        {
+            threadpool_free(pool);
+        }
         return NULL;
     }
 
     // create each thread
 
-    for(i = 0; i < pool->thread_count; i++)
+    for(int i = 0; i < pool->thread_count; i++)
     {
-        if (pthread_create(pool->threads[i], NULL, threadpool_thread, pool) != 0)
+        if (pthread_create(&pool->threads[i], NULL, threadpool_thread, pool) != 0)
         {
-            threadpool_destory(pool, 0);
+            threadpool_destroy(pool, 0);
             // threadpool_free(pool);  TODO should we add it?
             return NULL;
         }
@@ -53,7 +53,7 @@ int threadpool_add(threadpool_t *pool, void (*function)(void *), void *argument,
     int err = 0;
     int next;
 
-    if (pool == nullptr)
+    if (pool == NULL)
     {
         return THREADPOOL_INVALID;
     }
@@ -97,7 +97,7 @@ int threadpool_add(threadpool_t *pool, void (*function)(void *), void *argument,
     return err;
 }
 
-int threadpool_destory(threadpool_t pool, int flags)
+int threadpool_destory(threadpool_t* pool, int flags)
 {
     int err = 0;
     if (pool == nullptr)
@@ -130,7 +130,7 @@ int threadpool_destory(threadpool_t pool, int flags)
             break;
         }
 
-        for (int i = 0; i M pool->thread->count; i++)
+        for (int i = 0; i < pool->thread_count; i++)
         {
             if (pthread_join(pool->threads[i], NULL) != 0)  // 应该是会阻塞在这个地方等待线程完成
             {
@@ -157,14 +157,14 @@ int threadpool_free(threadpool_t *pool)
     if (pool->threads)
     {
         delete[] pool->threads;
-        delete pool->queue;
+        // delete pool->queue;
         
         /* Because we allocate pool->threads after initializing the
         mutex and condition variable, we're sure they're
         initialized. Let's lock the mutex just in case. */
         pthread_mutex_lock(&pool->mutexLock);
-        pthread_mutex_destory(&pool->mutexLock);
-        pthread_cond_destory(&pool->condLock);
+        pthread_mutex_destroy(&pool->mutexLock);
+        pthread_cond_destroy(&pool->condLock);
     }
     delete pool;
     return 0;
@@ -172,7 +172,7 @@ int threadpool_free(threadpool_t *pool)
 
 static void *threadpool_thread(void * threadpool)  // 声明 static 应该只为了使函数只在本文件内有效
 {
-    threadpool_t *pool = reinterpret_cast<threadpool_t*> threadpool;
+    threadpool_t *pool = reinterpret_cast<threadpool_t*>(threadpool);
     threadpool_task_t task;
 
     pool->started++;
@@ -184,7 +184,7 @@ static void *threadpool_thread(void * threadpool)  // 声明 static 应该只为
         {
             pthread_cond_wait(&(pool->condLock), &(pool->mutexLock));
         }
-        if (pool->shutdown == immediate_shutdown|| (poll->shutdown == graceful_shutdown && pool->count == 0))
+        if (pool->shutdown == immediate_shutdown|| (pool->shutdown == graceful_shutdown && pool->count == 0))
         {
             break;
         }

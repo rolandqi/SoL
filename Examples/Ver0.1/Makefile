@@ -3,8 +3,8 @@ OBJS    := $(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(SOURCE)))
 
 TARGET  := myserver
 CC      := g++
-LIBS    := -lpthread -lopencv_core -lopencv_imgproc -lopencv_highgui
-INCLUDE:= -I./usr/local/include/opencv
+LIBS    := -lpthread
+# INCLUDE:= -I./usr/local/include/opencv
 CFLAGS  := -std=c++11 -g -Wall -O3 $(INCLUDE)
 CXXFLAGS:= $(CFLAGS)
 

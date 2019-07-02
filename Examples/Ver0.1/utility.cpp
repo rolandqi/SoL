@@ -7,7 +7,7 @@ void handle_for_sigpipe()
     struct sigaction sa;
     sa.sa_handler = SIG_IGN;
     sa.sa_flags = 0;
-    sigaction(SIGPIPE, &sa, NULL);
+    sigaction(SIGPIPE, &sa, nullptr);
 }
 
 int setSocketNonBlocking(int fd)

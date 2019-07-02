@@ -2,6 +2,10 @@
 #include "epoll.h"
 #include <sys/time.h>
 #include <iostream>
+#include <stddef.h>  // for NULL
+
+pthread_mutex_t MimeType::mutexLock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t requestData::requestLock = PTHREAD_MUTEX_INITIALIZER;
 
 void MimeType::init()
 {
@@ -21,7 +25,7 @@ void MimeType::init()
     mime["default"] = "text/html";
 }
 
-static string MimeType::getMime(const string &suffix)                // TODO 这个string是不是不需要加啊？
+string MimeType::getMime(const string &suffix)                // TODO 这个string是不是不需要加啊？
 {
     if (mime.empty())
     {
@@ -73,7 +77,7 @@ requestData::requestData(int _epollfd, int _fd, std::string _path) :
 requestData::~requestData()
 {
     cout<<"~requestData()"<<endl;
-    sturct epoll_event ev;
+    struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
     ev.data.ptr = (void*)this;
 
@@ -81,32 +85,52 @@ requestData::~requestData()
 
 void requestData::addTimer(mytimer *mtimer)
 {
-
+    if (timer == NULL)
+    {
+        timer = mtimer;
+    }
+    else
+    {
+        cout<<"timer already exist"<<endl;
+    }
+    
 }
 
 void requestData::reset()
 {
-
+    againTimes = 0;
+    content.clear();
+    file_name.clear();
+    path.clear();
+    now_read_pos = 0;
+    state = STATE_PARSE_URI;
+    h_state = h_start;
+    headers.clear();
+    keep_alive = false;
 }
 
 void requestData::seperateTimer()
 {
-
+    if (timer)
+    {
+        timer->clearReq();
+        timer = NULL;
+    }
 }
 
 int requestData::getFd()
 {
-
+    return fd;
 }
 
 void requestData::setFd(int _fd)
 {
-
+    this->fd = _fd;
 }
 
 void requestData::handleRequest()
 {
-
+    
 }
 
 void requestData::handleError(int fd, int err_num, std::string short_msg)
