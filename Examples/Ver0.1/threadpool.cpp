@@ -123,7 +123,7 @@ int threadpool_destory(threadpool_t pool, int flags)
         // 唤醒所有因条件变量阻塞的线程，并释放互斥锁
         // TODO 唤醒所有阻塞的变量难道不会吧已经执行过的entry再执行一遍吗？（queue已经循环了一遍） 或者多做几个空的queue（queue还没循环过一遍）
         // 答案，不会的， 因为在threadpool_thread里面会break出去。
-        if (pthread_cond_broadcast(&pool->condLock) != 0 ||
+        if (pthread_cond_broadcast(&pool->condLock) != 0 ||  // TODO 这个地方是立即返回，还是等每一个线程都加锁解锁完成之后再返回？
         pthread_mutex_unlock(&pool->mutexLock) != 0)
         {
             err = THREADPOOL_LOCK_FAILURE;
