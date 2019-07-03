@@ -51,7 +51,6 @@ requestData::requestData() :
                 state(STATE_PARSE_URI),
                 h_state(h_start),
                 keep_alive(false),
-                againTimes(0),
                 timer(nullptr),
                 path(),  // TODO 用这种方式命令空串可行吗？ 
                 fd(0), 
@@ -64,8 +63,7 @@ requestData::requestData(int _epollfd, int _fd, std::string _path) :
                 now_read_pos(0), 
                 state(STATE_PARSE_URI), 
                 h_state(h_start),
-                keep_alive(false), 
-                againTimes(0), 
+                keep_alive(false),  
                 timer(NULL),
                 path(_path), 
                 fd(_fd), 
@@ -78,8 +76,16 @@ requestData::~requestData()
 {
     cout<<"~requestData()"<<endl;
     struct epoll_event ev;
+    // 超时的一定都是读请求，没有"被动"写。  //TODO 这写的是什么玩意！！！
     ev.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
     ev.data.ptr = (void*)this;
+    epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
+    if (timer != nullptr)
+    {
+        timer->clearReq();
+        timer = nullptr;
+    }
+    close(fd);
 
 }
 
@@ -98,7 +104,6 @@ void requestData::addTimer(mytimer *mtimer)
 
 void requestData::reset()
 {
-    againTimes = 0;
     content.clear();
     file_name.clear();
     path.clear();
@@ -130,7 +135,37 @@ void requestData::setFd(int _fd)
 
 void requestData::handleRequest()
 {
-    
+    char buf[MAX_BUFF];
+    bool isError = false;
+    while (true)
+    {
+        // 这个地方之所以处理起来这么麻烦，是因为不知道发过来的data到底有多少字节
+        int readNum = readn(fd, buf, MAX_BUFF);
+        if(readNum < 0)
+        {
+            isError = true;
+            break;
+        }
+        string reads(buf, buf + readNum);
+        content += reads;  // 每次的read内容直接附到content后面
+
+        if (state == STATE_PARSE_URI)
+        {
+            int flag = parse_URI();
+            if (flag == PARSE_URI_AGAIN)
+            {
+                break;
+            }
+            else if (flag == PARSE_URI_ERROR)
+            {
+                perror("parse URL error");
+                isError = true;
+                break;
+            }
+            
+        }
+
+    }
 }
 
 void requestData::handleError(int fd, int err_num, std::string short_msg)
@@ -140,8 +175,211 @@ void requestData::handleError(int fd, int err_num, std::string short_msg)
 
 int requestData::parse_URI()
 {
-
+    string &str = content;
+    // 读到完整的请求行再开始解析请求
+    if (pos < 0)
+    int pos = str.find('\r', now_read_pos);
+    {
+        return PARSE_URI_AGAIN;
+    }
+    // 去掉请求行所占的空间，节省空间
+    string request_line = str.substr(0, pos);
+    if (str.size() > pos + 1)
+        str = str.substr(pos + 1);
+    else 
+        str.clear();
+    // Method
+    pos = request_line.find("GET");
+    if (pos < 0)
+    {
+        pos = request_line.find("POST");
+        if (pos < 0)
+        {
+            return PARSE_URI_ERROR;
+        }
+        else
+        {
+            method = METHOD_POST;
+        }
+    }
+    else
+    {
+        method = METHOD_GET;
+    }
+    //printf("method = %d\n", method);
+    // filename
+    pos = request_line.find("/", pos);
+    if (pos < 0)
+    {
+        return PARSE_URI_ERROR;
+    }
+    else
+    {
+        int _pos = request_line.find(' ', pos);
+        if (_pos < 0)
+            return PARSE_URI_ERROR;
+        else
+        {
+            if (_pos - pos > 1)
+            {
+                file_name = request_line.substr(pos + 1, _pos - pos - 1);
+                int __pos = file_name.find('?');
+                if (__pos >= 0)
+                {
+                    file_name = file_name.substr(0, __pos);
+                }
+            }
+                
+            else
+                file_name = "index.html";
+        }
+        pos = _pos;
+    }
+    //cout << "file_name: " << file_name << endl;
+    // HTTP 版本号
+    pos = request_line.find("/", pos);
+    if (pos < 0)
+    {
+        return PARSE_URI_ERROR;
+    }
+    else
+    {
+        if (request_line.size() - pos <= 3)
+        {
+            return PARSE_URI_ERROR;
+        }
+        else
+        {
+            string ver = request_line.substr(pos + 1, 3);
+            if (ver == "1.0")
+                HTTPversion = HTTP_10;
+            else if (ver == "1.1")
+                HTTPversion = HTTP_11;
+            else
+                return PARSE_URI_ERROR;
+        }
+    }
+    state = STATE_PARSE_HEADERS;
+    return PARSE_URI_SUCCESS;
 }
+
+int requestData::parse_Headers()
+{
+    string &str = content;
+    int key_start = -1, key_end = -1, value_start = -1, value_end = -1;
+    int now_read_line_begin = 0;
+    bool notFinish = true;
+    for (int i = 0; i < str.size() && notFinish; ++i)
+    {
+        switch(h_state)
+        {
+            case h_start:
+            {
+                if (str[i] == '\n' || str[i] == '\r')
+                    break;
+                h_state = h_key;
+                key_start = i;
+                now_read_line_begin = i;
+                break;
+            }
+            case h_key:
+            {
+                if (str[i] == ':')
+                {
+                    key_end = i;
+                    if (key_end - key_start <= 0)
+                        return PARSE_HEADER_ERROR;
+                    h_state = h_colon;
+                }
+                else if (str[i] == '\n' || str[i] == '\r')
+                    return PARSE_HEADER_ERROR;
+                break;  
+            }
+            case h_colon:
+            {
+                if (str[i] == ' ')
+                {
+                    h_state = h_spaces_after_colon;
+                }
+                else
+                    return PARSE_HEADER_ERROR;
+                break;  
+            }
+            case h_spaces_after_colon:
+            {
+                h_state = h_value;
+                value_start = i;
+                break;  
+            }
+            case h_value:
+            {
+                if (str[i] == '\r')
+                {
+                    h_state = h_CR;
+                    value_end = i;
+                    if (value_end - value_start <= 0)
+                        return PARSE_HEADER_ERROR;
+                }
+                else if (i - value_start > 255)
+                    return PARSE_HEADER_ERROR;
+                break;  
+            }
+            case h_CR:
+            {
+                if (str[i] == '\n')
+                {
+                    h_state = h_LF;
+                    string key(str.begin() + key_start, str.begin() + key_end);
+                    string value(str.begin() + value_start, str.begin() + value_end);
+                    headers[key] = value;
+                    now_read_line_begin = i;
+                }
+                else
+                    return PARSE_HEADER_ERROR;
+                break;  
+            }
+            case h_LF:
+            {
+                if (str[i] == '\r')
+                {
+                    h_state = h_end_CR;
+                }
+                else
+                {
+                    key_start = i;
+                    h_state = h_key;
+                }
+                break;
+            }
+            case h_end_CR:
+            {
+                if (str[i] == '\n')
+                {
+                    h_state = h_end_LF;
+                }
+                else
+                    return PARSE_HEADER_ERROR;
+                break;
+            }
+            case h_end_LF:
+            {
+                notFinish = false;
+                key_start = i;
+                now_read_line_begin = i;
+                break;
+            }
+        }
+    }
+    if (h_state == h_end_LF)
+    {
+        str = str.substr(now_read_line_begin);
+        return PARSE_HEADER_SUCCESS;
+    }
+    str = str.substr(now_read_line_begin);
+    return PARSE_HEADER_AGAIN;
+}
+
+
 
 int requestData::parse_Headers()
 {

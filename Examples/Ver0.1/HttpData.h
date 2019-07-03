@@ -20,11 +20,6 @@ const int STATE_FINISH = 5;
 
 const int MAX_BUFF = 4096;
 
-// 有请求出现但是读不到数据,可能是Request Aborted,
-// 或者来自网络的数据没有达到等原因,
-// 对这样的请求尝试超过一定的次数就抛弃
-const int AGAIN_MAX_TIMES = 200;
-
 const int PARSE_URI_AGAIN = -1;
 const int PARSE_URI_ERROR = -2;
 const int PARSE_URI_SUCCESS = 0;
@@ -85,7 +80,6 @@ public:
     void handleError(int fd, int err_num, std::string short_msg);
 
 private:
-    int againTimes;
     std::string path;
     int fd;
     int epollfd;
