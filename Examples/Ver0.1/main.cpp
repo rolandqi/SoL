@@ -11,15 +11,16 @@
 #include "threadpool.h"
 #include <pthread.h>
 #include <sys/socket.h>
+#include <netinet/in.h>  // sockaddr_in
 
 
 using namespace std;
 
-const int MAX_EVENTS 10
-const int PORT 3389
-const int BUFSIZE 1024
+const int MAX_EVENTS = 10;
+const int PORT = 3389;
+const int BUFSIZE = 1024;
 
-const int THREADPOOL_THREAD_NUM = 4;
+const int THREADPOOL_THREAD_NUM = 2;
 const int QUEUE_SIZE = 128;
 
 const int ASK_STATIC_FILE = 1;
@@ -28,7 +29,7 @@ const int ASK_IMAGE_STITCH = 2;
 const string PATH = "/";
 const int TIMER_TIME_OUT = 500;
 
-extern pthread_mutex_t requestData::requestLock;
+priority_queue<mytimer*, vector<mytimer*>, comparator> myTimerQueue;
 
 int socket_bind_listen(const int port)
 {
@@ -39,20 +40,20 @@ int socket_bind_listen(const int port)
     int listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd == -1)
     {
-        poerror("socket creation error.")
+        perror("socket creation error.");
         return -1;
     }
 
     // 消除bind时"Address already in use"错误
     int optval = 1;
-    if(setsockopt(listen_fd, SOL_SOCKET,  SO_REUSEADDR, &optval, sizeof(optval)) == -1)  // TODO 记录一下这个函数
+    if(setsockopt(listenfd, SOL_SOCKET,  SO_REUSEADDR, &optval, sizeof(optval)) == -1)  // TODO 记录一下这个函数
     {
         perror("setsockopt error!");
         return -1;
     }
 
     struct sockaddr_in servaddr;
-    memeset(&servaddr, 0, sizeof servaddr);
+    memset(&servaddr, 0, sizeof servaddr);
 
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(port);
@@ -82,15 +83,22 @@ void acceptConnection(int listen_fd, int epoll_fd, const string &path)
     {
         if (setSocketNonBlocking(acceptfd) < 0)
         {
-            perror("set non blocking error.")
+            perror("set non blocking error.");
         }
         //这个地方为什么要用one shot？
-        equestData *req_info = new requestData(epoll_fd, acceptfd, path);
+
+        requestData *req_info = new requestData(epoll_fd, acceptfd, path);
         epoll_add(epoll_fd, acceptfd, reinterpret_cast<void *>(req_info), EPOLLIN | EPOLLET | EPOLLONESHOT);
         mytimer *mtimer = new mytimer(req_info, TIMER_TIME_OUT);
-        req_info->addtimer(mtimer);
+        req_info->addTimer(mtimer);
         myTimerQueue.push(mtimer);
     }
+}
+
+void myHandler(void *args)
+{
+    requestData *req_data = (requestData*)args;
+    req_data->handleRequest();
 }
 
 void handle_events(int epoll_fd, int listen_fd, struct epoll_event* events, int events_num, const string &path, threadpool_t* tp)
@@ -115,6 +123,7 @@ void handle_events(int epoll_fd, int listen_fd, struct epoll_event* events, int 
 
             // 将请求任务加入到线程池中
             // 加入线程池之前将Timer和request分离
+            cout<<"xianchengshi"<<endl;
             request->seperateTimer();
             int rc = threadpool_add(tp, myHandler, request, 0);
         }   
@@ -138,12 +147,12 @@ void handle_expired_event()
         mytimer *ptimer = myTimerQueue.top();
         if (ptimer->isDeleted())
         {
-            mytimerQueue.pop();
+            myTimerQueue.pop();
             delete ptimer;  // 之所以能在这里delete掉requestdata, 是因为timeout设置时间都很长，（并且用了oneshut），做一次之后，timeout结束之后就要删除
         }
         else if (ptimer->isvalid() == false)
         {
-            mytimerQueue.pop();
+            myTimerQueue.pop();
             delete ptimer;
         }
         else
@@ -155,16 +164,21 @@ void handle_expired_event()
 
 int main(int argc, char *argv[])
 {
-    struct epoll_event* events;
+    epoll_event* events = new epoll_event[MAXEVENTS];
     // handle for sigpipe
     int epollfd = epoll_init(events);  // 在里面初始化epoll的返回指针 events的空间。
     if (epollfd < 0)
     {
-        perror("epoll creation failed.")
+        perror("epoll creation failed.");
         return 1;
     }
 
     threadpool_t* threadpool = threadpool_create(THREADPOOL_THREAD_NUM, QUEUE_SIZE, 0);
+    if (threadpool == nullptr)
+    {
+        perror("thread pool creation error.");
+        return 1;
+    }
 
     int listen_fd = socket_bind_listen(PORT);
     if (listen_fd < 0)
@@ -180,17 +194,21 @@ int main(int argc, char *argv[])
     UINT_32 event = EPOLLIN | EPOLLET;  // 使用边沿触发模式， 保证每次只触发一个
     requestData *req = new requestData();
     req->setFd(listen_fd);
-    epoll_add(epoll_fd, listen_fd, req, event);  // TODO 这个地方需要把req指针转换为void*类型吗？
+    epoll_add(epollfd, listen_fd, reinterpret_cast<void *>(req), event);  // TODO 这个地方需要把req指针转换为void*类型吗？
     while (true)
     {
-        int nready = epoll_waits(epoll_fd, events, MAXEVENTS, -1);
+        int nready = epoll_waits(epollfd, events, MAXEVENTS, -1);
         if(nready == 0)
         {
             continue;  // TODO 什么时间会返回0ready?
         }
+        else if (nready < 0)
+        {
+            break;
+        }
         cout<<"nready"<<nready<<endl;
-        handle_events(epoll_fd, listen_fd, events, nready, PATH, threadpool);
-        handle_expired_event();
+        handle_events(epollfd, listen_fd, events, nready, PATH, threadpool);
+        // handle_expired_event();
     }
     return 0;
 }

@@ -1,103 +1,9 @@
 #include "threadpool.h"
 #include <vector>
+#include <iostream>
 //https://blog.csdn.net/jcjc918/article/details/50395528
 
-threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
-{
-    threadpool_t *pool;
-
-    if (thread_count <= 0 || thread_count > MAX_THREADS || queue_size <= 0 || queue_size > MAX_QUEUE)
-    {
-        return NULL;
-    }
-
-    pool  = new threadpool_t;
-    pool->thread_count = 0;
-    pool->queue_size = queue_size;
-    pool->count = 0;
-    pool->head = 0;
-    pool->tail = 0;
-    pool->shutdown = 0;
-    pool->started = 0;
-    pool->threads = new pthread_t[thread_count];
-    pool->queue = vector<threadpool_task_t>(queue_size);  // 我在想更好的方法可能是用std::queue, 但是应该如何维护queue的最大size？
-    
-    if (pthread_mutex_init(&(pool->mutexLock), NULL) != 0 ||
-    pthread_cond_init(&(pool->condLock), nullptr) != 0)
-    {
-        if (pool != NULL) 
-        {
-            threadpool_free(pool);
-        }
-        return NULL;
-    }
-
-    // create each thread
-
-    for(int i = 0; i < pool->thread_count; i++)
-    {
-        if (pthread_create(&pool->threads[i], NULL, threadpool_thread, pool) != 0)
-        {
-            threadpool_destroy(pool, 0);
-            // threadpool_free(pool);  TODO should we add it?
-            return NULL;
-        }
-        pool->thread_count++;
-        pool->started++;
-    }
-    return pool;
-}
-
-int threadpool_add(threadpool_t *pool, void (*function)(void *), void *argument, int flag)
-{
-    int err = 0;
-    int next;
-
-    if (pool == NULL)
-    {
-        return THREADPOOL_INVALID;
-    }
-
-    if (pthread_mutex_lock(&pool->mutexLock) != 0)
-    {
-        return THREADPOOL_LOCK_FAILURE;
-    }
-
-    next = (pool->tail + 1) % pool->queue_size;  // 如果pool太小可能有问题，队列还没被吃完，头节点又被更新了
-    do
-    {
-        /* Are we full ? */
-        if(pool->count == pool->queue_size) {
-            err = THREADPOOL_QUEUE_FULL;
-            break;
-        }
-        /* Are we shutting down ? */
-        if(pool->shutdown) {
-            err = THREADPOOL_SHUTDOWN;
-            break;
-        }
-
-        // next is to add a valid entry to queue.
-        pool->queue[pool->tail].function = function;
-        pool->queue[pool->tail].argument = argument;
-        pool->tail = next;
-        pool->count++;
-
-        // 每加一个做一个， 所以queue里面的东西只有记录的意义？
-        if (pthread_cond_signal(&(pool->condLock)) != 0)
-        {
-            err = THREADPOOL_LOCK_FAILURE;  // TODO 这个为啥是lock failure？
-        }
-    } while (false);
-    
-    if (pthread_mutex_unlock(&(pool->mutexLock)) != 0)  // 应该是这个unlock之后，线程池之内的某线程才会有动作， TODO test it.
-    {
-        err = THREADPOOL_LOCK_FAILURE;
-    }
-    return err;
-}
-
-int threadpool_destory(threadpool_t* pool, int flags)
+int threadpool_destroy(threadpool_t* pool, int flags)
 {
     int err = 0;
     if (pool == nullptr)
@@ -170,8 +76,106 @@ int threadpool_free(threadpool_t *pool)
     return 0;
 }
 
-static void *threadpool_thread(void * threadpool)  // 声明 static 应该只为了使函数只在本文件内有效
+threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
 {
+    threadpool_t *pool;
+
+    if (thread_count <= 0 || thread_count > MAX_THREADS || queue_size <= 0 || queue_size > MAX_QUEUE)
+    {
+        return NULL;
+    }
+
+    pool  = new threadpool_t;
+    pool->thread_count = 0;
+    pool->queue_size = queue_size;
+    pool->count = 0;
+    pool->head = 0;
+    pool->tail = 0;
+    pool->shutdown = 0;
+    pool->started = 0;
+    pool->threads = new pthread_t[thread_count];
+    pool->queue = vector<threadpool_task_t>(queue_size);  // 我在想更好的方法可能是用std::queue, 但是应该如何维护queue的最大size？
+    
+    if (pthread_mutex_init(&(pool->mutexLock), NULL) != 0 ||
+    pthread_cond_init(&(pool->condLock), nullptr) != 0)
+    {
+        if (pool != NULL) 
+        {
+            threadpool_free(pool);
+        }
+        return NULL;
+    }
+
+    // create each thread
+    // cout<<"create each thread"<<endl;
+    for(int i = 0; i < thread_count; i++)
+    {
+        // cout<<i<<endl;
+        if (pthread_create(&pool->threads[i], NULL, threadpool_thread, pool) != 0)
+        {
+            perror("thread creation error");
+            threadpool_destroy(pool, 0);
+            // threadpool_free(pool);  TODO should we add it?
+            return NULL;
+        }
+        pool->thread_count++;
+        pool->started++;
+    }
+    return pool;
+}
+
+int threadpool_add(threadpool_t *pool, void (*function)(void *), void *argument, int flag)
+{
+    int err = 0;
+    int next;
+
+    if (pool == NULL)
+    {
+        return THREADPOOL_INVALID;
+    }
+
+    if (pthread_mutex_lock(&pool->mutexLock) != 0)
+    {
+        return THREADPOOL_LOCK_FAILURE;
+    }
+
+    next = (pool->tail + 1) % pool->queue_size;  // 如果pool太小可能有问题，队列还没被吃完，头节点又被更新了
+    do
+    {
+        /* Are we full ? */
+        if(pool->count == pool->queue_size) {
+            err = THREADPOOL_QUEUE_FULL;
+            break;
+        }
+        /* Are we shutting down ? */
+        if(pool->shutdown) {
+            err = THREADPOOL_SHUTDOWN;
+            break;
+        }
+
+        // next is to add a valid entry to queue.
+        pool->queue[pool->tail].function = function;
+        pool->queue[pool->tail].argument = argument;
+        pool->tail = next;
+        pool->count++;
+
+        // 每加一个做一个， 所以queue里面的东西只有记录的意义？
+        if (pthread_cond_signal(&(pool->condLock)) != 0)
+        {
+            err = THREADPOOL_LOCK_FAILURE;  // TODO 这个为啥是lock failure？
+        }
+    } while (false);
+    
+    if (pthread_mutex_unlock(&(pool->mutexLock)) != 0)  // 应该是这个unlock之后，线程池之内的某线程才会有动作， TODO test it.
+    {
+        err = THREADPOOL_LOCK_FAILURE;
+    }
+    return err;
+}
+
+void *threadpool_thread(void *threadpool)  // 声明 static 应该只为了使函数只在本文件内有效
+{
+    cout<<"one thread"<<endl;
     threadpool_t *pool = reinterpret_cast<threadpool_t*>(threadpool);
     threadpool_task_t task;
 
@@ -180,7 +184,7 @@ static void *threadpool_thread(void * threadpool)  // 声明 static 应该只为
     {
         pthread_mutex_lock(&(pool->mutexLock));
 
-        while (pool->count >= 0 && !pool->shutdown)
+        while (pool->count == 0 && !pool->shutdown)  // 之所以寫pool->count == 0是和业务逻辑有关的， 总之，条件变量的这个while循环，要保证如果激活了条件锁，就要跳出
         {
             pthread_cond_wait(&(pool->condLock), &(pool->mutexLock));
         }
@@ -197,6 +201,7 @@ static void *threadpool_thread(void * threadpool)  // 声明 static 应该只为
         pthread_mutex_unlock(&(pool->mutexLock));
 
         /* Get to work */
+        cout<<"thread go to work"<<endl;
         (*(task.function))(task.argument);  // 如果实际队列中并没有这么多待执行的func该怎么办?
     }
 

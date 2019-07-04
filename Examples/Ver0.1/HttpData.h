@@ -93,9 +93,9 @@ private:
     int h_state;
     bool isfinish;
     bool keep_alive;
-    std::unordered_map<std::string, std::string> headers;
+    unordered_map<std::string, std::string> headers;
     mytimer *timer;
-    static pthread_mutex_t requestLock;  // 这个应该是静态变量， 因为所有的reqestData 公用一个
+    // static pthread_mutex_t requestLock;  // 这个应该是静态变量， 因为所有的reqestData 公用一个
 
     int parse_URI();
     int parse_Headers();
@@ -127,6 +127,6 @@ public:
     }
 };
 
-priority_queue<mytimer*, vector<mytimer*>, comparator> myTimerQueue;
+
 
 #endif

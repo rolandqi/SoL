@@ -1,6 +1,7 @@
 #include "utility.h"
 #include <signal.h>
 #include <fcntl.h>
+#include <unistd.h>  // for read/write/close
 
 void handle_for_sigpipe()
 {
@@ -22,13 +23,13 @@ int setSocketNonBlocking(int fd)
     return 0;
 }
 
-ssize_t writen(int sockfd, const void* buf, int length)
+int writen(int sockfd, const void* buf, int length)
 {
   int written = 0;
   int retrycount = AGAIN_MAX_TIMES;
   while (written < length)
   {
-    ssize_t nw = ::write(sockfd, static_cast<const char*>(buf) + written, length - written);
+    int nw = write(sockfd, static_cast<const char*>(buf) + written, length - written);
     if (nw > 0)
     {
         written += static_cast<int>(nw);
@@ -60,13 +61,13 @@ ssize_t writen(int sockfd, const void* buf, int length)
   return written;
 }
 
-ssize_t readn(int sockfd, void* buf, int length)
+int readn(int sockfd, void* buf, int length)
 {
   int nread = 0;
   int retrycount = 10;
   while (nread < length)
   {
-    ssize_t nr = ::read(sockfd, static_cast<char*>(buf) + nread, length - nread);
+    int nr = read(sockfd, static_cast<char*>(buf) + nread, length - nread);
     if (nr > 0)
     {
         nread += static_cast<int>(nr);

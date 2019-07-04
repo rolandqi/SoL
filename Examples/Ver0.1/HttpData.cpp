@@ -1,15 +1,18 @@
 #include "HttpData.h"
 #include "epoll.h"
+#include "utility.h"
 #include <sys/time.h>
 #include <iostream>
 #include <stddef.h>  // for NULL
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <unistd.h>  // for close()
 #include <queue>
 
-pthread_mutex_t MimeType::mutexLock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t requestData::requestLock = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t mimeLock = PTHREAD_MUTEX_INITIALIZER;
+std::unordered_map<std::string, std::string> MimeType::mime;
 
 void MimeType::init()
 {
@@ -33,12 +36,12 @@ string MimeType::getMime(const string &suffix)                // TODO 这个stri
 {
     if (mime.empty())
     {
-        pthread_mutex_lock(&mutexLock);
+        pthread_mutex_lock(&mimeLock);
         if (mime.size() == 0)
         {
             init();
         }
-        pthread_mutex_unlock(&mutexLock);
+        pthread_mutex_unlock(&mimeLock);
     }
     if (mime.find(suffix) == mime.end())
     {
@@ -139,6 +142,7 @@ void requestData::setFd(int _fd)
 
 void requestData::handleRequest()
 {
+    cout<<"handle requests"<<endl;
     char buf[MAX_BUFF];
     bool isError = false;
     while (true)
@@ -166,23 +170,108 @@ void requestData::handleRequest()
                 isError = true;
                 break;
             }
-            
         }
+        if (state == STATE_PARSE_HEADERS)
+        {
+            int flag = this->parse_Headers();
+            if (flag == PARSE_HEADER_AGAIN)
+            {  
+                break;
+            }
+            else if (flag == PARSE_HEADER_ERROR)
+            {
+                perror("3");
+                isError = true;
+                break;
+            }
+            if(method == METHOD_POST)
+            {
+                state = STATE_RECV_BODY;
+            }
+            else 
+            {
+                state = STATE_ANALYSIS;
+            }
+        }
+        if (state == STATE_RECV_BODY)
+        {
+            int content_length = -1;
+            if (headers.find("Content-length") != headers.end())
+            {
+                content_length = stoi(headers["Content-length"]);
+            }
+            else
+            {
+                isError = true;
+                break;
+            }
+            if (content.size() < content_length)
+                continue;
+            state = STATE_ANALYSIS;
+        }
+        if (state == STATE_ANALYSIS)
+        {
+            cout<<"enter HERE"<<endl;
+            int flag = this->analysisRequest();
+            if (flag < 0)
+            {
+                isError = true;
+                break;
+            }
+            else if (flag == ANALYSIS_SUCCESS)
+            {
 
+                state = STATE_FINISH;
+                break;
+            }
+            else
+            {
+                isError = true;
+                break;
+            }
+        }
     }
-}
+    // if (isError)
+    // {
+    //     delete this;
+    //     return;
+    // }
+    // // 加入epoll继续
+    // if (state == STATE_FINISH)
+    // {
+    //     if (keep_alive)
+    //     {
+    //         printf("ok\n");
+    //         this->reset();
+    //     }
+    //     else
+    //     {
+    //         delete this;
+    //         return;
+    //     }
+    // }
+    // // 一定要先加时间信息，否则可能会出现刚加进去，下个in触发来了，然后分离失败后，又加入队列，最后超时被删，然后正在线程中进行的任务出错，double free错误。
+    // // 新增时间信息
+    // mytimer *mtimer = new mytimer(this, 500);
+    // timer = mtimer;
+    // myTimerQueue.push(mtimer);
 
-void requestData::handleError(int fd, int err_num, std::string short_msg)
-{
-
+    // __uint32_t _epo_event = EPOLLIN | EPOLLET | EPOLLONESHOT;
+    // int ret = epoll_mod(epollfd, fd, static_cast<void*>(this), _epo_event);
+    // if (ret < 0)
+    // {
+    //     // 返回错误处理
+    //     delete this;
+    //     return;
+    // }
 }
 
 int requestData::parse_URI()
 {
     string &str = content;
     // 读到完整的请求行再开始解析请求
-    if (pos < 0)
     int pos = str.find('\r', now_read_pos);
+    if (pos < 0)
     {
         return PARSE_URI_AGAIN;
     }

@@ -1,7 +1,7 @@
 SOURCE  := $(wildcard *.cpp)
 OBJS    := $(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(SOURCE)))
 
-TARGET  := myserver
+TARGET  := SoLV01.exe
 CC      := g++
 LIBS    := -lpthread
 # INCLUDE:= -I./usr/local/include/opencv
