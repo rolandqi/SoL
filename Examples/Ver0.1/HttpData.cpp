@@ -3,6 +3,10 @@
 #include <sys/time.h>
 #include <iostream>
 #include <stddef.h>  // for NULL
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <queue>
 
 pthread_mutex_t MimeType::mutexLock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t requestData::requestLock = PTHREAD_MUTEX_INITIALIZER;
@@ -315,7 +319,7 @@ int requestData::parse_Headers()
             {
                 if (str[i] == '\r')
                 {
-                    h_state = h_CR;
+                    h_state = h_CR;  // 处理一个请求的睿智代码:)  一个一个请求处理并放到headers里面
                     value_end = i;
                     if (value_end - value_start <= 0)
                         return PARSE_HEADER_ERROR;
@@ -379,18 +383,114 @@ int requestData::parse_Headers()
     return PARSE_HEADER_AGAIN;
 }
 
-
-
-int requestData::parse_Headers()
-{
-
-}
-
 int requestData::analysisRequest()
 {
+    if (method == METHOD_POST)
+    {
+        //get content
+        char header[MAX_BUFF];
+        sprintf(header, "HTTP/1.1 %d %s\r\n", 200, "OK");
+        if(headers.find("Connection") != headers.end() && headers["Connection"] == "keep-alive")
+        {
+            keep_alive = true;
+            sprintf(header, "%sConnection: keep-alive\r\n", header);
+            sprintf(header, "%sKeep-Alive: timeout=%d\r\n", header, EPOLL_WAIT_TIME);
+        }
+        //cout << "content=" << content << endl;
+        // test char*
+        char *send_content = "I have receiced this.";
 
+        sprintf(header, "%sContent-length: %zu\r\n", header, strlen(send_content));
+        sprintf(header, "%s\r\n", header);
+        size_t send_len = (size_t)writen(fd, header, strlen(header));
+        if(send_len != strlen(header))
+        {
+            perror("Send header failed");
+            return ANALYSIS_ERROR;
+        }
+        
+        send_len = (size_t)writen(fd, send_content, strlen(send_content));
+        if(send_len != strlen(send_content))
+        {
+            perror("Send content failed");
+            return ANALYSIS_ERROR;
+        }
+        cout << "content size ==" << content.size() << endl;
+        // do nothing for now.
+        return ANALYSIS_SUCCESS;
+    }
+    else if (method == METHOD_GET)
+    {
+        char header[MAX_BUFF];
+        sprintf(header, "HTTP/1.1 %d %s\r\n", 200, "OK");
+        if(headers.find("Connection") != headers.end() && headers["Connection"] == "keep-alive")
+        {
+            keep_alive = true;
+            sprintf(header, "%sConnection: keep-alive\r\n", header);
+            sprintf(header, "%sKeep-Alive: timeout=%d\r\n", header, EPOLL_WAIT_TIME);
+        }
+        int dot_pos = file_name.find('.');
+        const char* filetype;
+        if (dot_pos < 0) 
+            filetype = MimeType::getMime("default").c_str();
+        else
+            filetype = MimeType::getMime(file_name.substr(dot_pos)).c_str();
+        struct stat sbuf;
+        if (stat(file_name.c_str(), &sbuf) < 0)
+        {
+            handleError(fd, 404, "Not Found!");
+            return ANALYSIS_ERROR;
+        }
+
+        sprintf(header, "%sContent-type: %s\r\n", header, filetype);
+        // 通过Content-length返回文件大小
+        sprintf(header, "%sContent-length: %ld\r\n", header, sbuf.st_size);
+
+        sprintf(header, "%s\r\n", header);
+        size_t send_len = (size_t)writen(fd, header, strlen(header));
+        if(send_len != strlen(header))
+        {
+            perror("Send header failed");
+            return ANALYSIS_ERROR;
+        }
+        int src_fd = open(file_name.c_str(), O_RDONLY, 0);
+        char *src_addr = static_cast<char*>(mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, src_fd, 0));
+        close(src_fd);
+    
+        // 发送文件并校验完整性
+        send_len = writen(fd, src_addr, sbuf.st_size);
+        if(send_len != sbuf.st_size)
+        {
+            perror("Send file failed");
+            return ANALYSIS_ERROR;
+        }
+        munmap(src_addr, sbuf.st_size);
+        return ANALYSIS_SUCCESS;
+    }
+    else
+        return ANALYSIS_ERROR;
 }
 
+void requestData::handleError(int fd, int err_num, string short_msg)
+{
+    short_msg = " " + short_msg;
+    char send_buff[MAX_BUFF];
+    string body_buff, header_buff;
+    body_buff += "<html><title>TKeed Error</title>";
+    body_buff += "<body bgcolor=\"ffffff\">";
+    body_buff += to_string(err_num) + short_msg;
+    body_buff += "<hr><em> Roland's Web Server</em>\n</body></html>";
+
+    header_buff += "HTTP/1.1 " + to_string(err_num) + short_msg + "\r\n";
+    header_buff += "Content-type: text/html\r\n";
+    header_buff += "Connection: close\r\n";
+    header_buff += "Content-length: " + to_string(body_buff.size()) + "\r\n";
+    header_buff += "\r\n";
+    sprintf(send_buff, "%s", header_buff.c_str());
+    writen(fd, send_buff, strlen(send_buff));
+    sprintf(send_buff, "%s", body_buff.c_str());
+    writen(fd, send_buff, strlen(send_buff));
+}
 
 mytimer::mytimer(requestData *request_data, int timeout) : deleted(false), request_data(request_data)
 {

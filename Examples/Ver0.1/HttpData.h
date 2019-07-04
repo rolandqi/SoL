@@ -53,7 +53,7 @@ enum HeadersState
 class MimeType
 {
 private:
-    static pthread_mutex_t mutexLock;
+    static pthread_mutex_t mutexLock;  // 我感觉这个不用static也行，因为MIME是单例模式
     static void init();
     MimeType();
     MimeType& operator=(const MimeType&);
@@ -95,7 +95,7 @@ private:
     bool keep_alive;
     std::unordered_map<std::string, std::string> headers;
     mytimer *timer;
-    static pthread_mutex_t requestLock;
+    static pthread_mutex_t requestLock;  // 这个应该是静态变量， 因为所有的reqestData 公用一个
 
     int parse_URI();
     int parse_Headers();
@@ -107,7 +107,7 @@ struct mytimer
 private:
     bool deleted;
     size_t expired_time;
-    requestData *request_data;  // 在timer里面delete掉request data
+    requestData *request_data;  // 在timer析构函数里面delete掉request data
 
 public:
     mytimer(requestData *request_data, int timeout);

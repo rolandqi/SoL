@@ -3,9 +3,9 @@
 
 using namespace std;
 
-struct epoll_event* events;  // 在这里声明全局变量 TODO why???
+// struct epoll_event* events;  // 在这里声明全局变量 TODO why???
 
-int epoll_init()
+int epoll_init(struct epoll_event* events)
 {
     int fd = epoll_create(MAXEVENTS);
     if (fd < 0)
