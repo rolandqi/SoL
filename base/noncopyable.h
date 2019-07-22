@@ -8,9 +8,6 @@
 #ifndef BASE_NONCOPYABLE_H_
 #define BASE_NONCOPYABLE_H_
 
-namespace sol
-{
-
 class noncopyable
 {
 public:
@@ -21,7 +18,6 @@ protected:
     noncopyable() = default;
     ~noncopyable() = default;
 };
-}
 
 
 
