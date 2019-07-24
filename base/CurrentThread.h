@@ -39,6 +39,9 @@ namespace CurrentThread
     {
         return t_threadName;
     }
+    bool isMainThread();
+    void sleepingUsec(int64_t usec);
+    std::string stackTrace(bool demangle);
 }
 
 

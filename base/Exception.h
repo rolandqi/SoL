@@ -13,31 +13,31 @@
 #include <exception>
 #include <string>
 
-class Exception : public std::exception
+class Exception : public std::exception  // not used.
 {
  public:
-    Exception(string msg)
+    Exception(std::string msg)
       : message_(std::move(msg)),
         stack_(CurrentThread::stackTrace(/*demangle=*/false))
     {
     }
-  ~Exception() noexcept override = default;
+    ~Exception() noexcept override = default;
 
   // default copy-ctor and operator= are okay.
 
-  const char* what() const noexcept override
-  {
-    return message_.c_str();
-  }
+    const char* what() const noexcept override
+    {
+        return message_.c_str();
+    }
 
-  const char* stackTrace() const noexcept
-  {
-    return stack_.c_str();
-  }
+    const char* stackTrace() const noexcept
+    {
+        return stack_.c_str();
+    }
 
  private:
-  string message_;
-  string stack_;
+      std::string message_;
+      std::string stack_;
 };
 
 

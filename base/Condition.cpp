@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <time.h>
+#include <sys/types.h>
 
 // returns true if time out, false otherwise.
 bool Condition::waitForSeconds(double seconds)

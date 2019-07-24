@@ -12,6 +12,7 @@
 #include "base/noncopyable.h"
 #include <assert.h>
 #include <pthread.h>
+#include <stddef.h>
 
 #define MCHECK(ret) ({ __typeof__ (ret) errnum = (ret);         \
                        assert(errnum == 0); (void) errnum;})
@@ -54,7 +55,7 @@ public:
     }
 
 private:
-    pthread_mutex_t mutex;
+    pthread_mutex_t mutex_;
     friend Condition;
     pid_t holder_;
 
