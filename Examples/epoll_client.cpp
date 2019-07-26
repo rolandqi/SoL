@@ -19,10 +19,10 @@
 #include <strings.h>
 #include <fcntl.h>
 #include <errno.h>
-
+#include <iostream>
 #define MAXSIZE 1024
 #define IPADDRESS "127.0.0.1"
-#define SERV_PORT 1234
+#define SERV_PORT 3389
 #define FD_SIZE 1024
 #define EPOLLEVENTS 20
 
@@ -44,6 +44,8 @@ int main (int argc, char*argv[])
     bzero(&servaddr, sizeof servaddr);
     inet_pton(AF_INET, IPADDRESS, &servaddr.sin_addr);
     servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(SERV_PORT);
     connect(sockfd, reinterpret_cast<sockaddr *>(&servaddr), sizeof servaddr);   // client 连接到服务器，三次握手成功之后才返回
     handle_connection(sockfd);
     close(sockfd);
@@ -56,7 +58,7 @@ void handle_connection(int sockfd)
     memset(&events, 0, sizeof(epoll_event) * EPOLLEVENTS);
     char buf[MAXSIZE];
     int epollfd = epoll_create(EPOLLEVENTS);
-    add_event(epollfd, sockfd, EPOLLIN);
+    add_event(epollfd, sockfd, EPOLLOUT);
     while (1)
     {
         int nready = epoll_wait(epollfd, events, EPOLLEVENTS, -1);  // 注意，这个地方调用的不是&events 而是 events， 因为events是一个数组
@@ -100,7 +102,8 @@ void setnonblocking(int sockfd)
 
 void do_read(int epollfd, int fd, int sockfd, char *buf)
 {
-    int nread = read(fd, buf, MAXSIZE);
+    int nread = read(fd, buf, 1);
+	std::cout<<"reading 1 byte"<<std::endl;
     if (nread == -1)
     {
         if (errno != EAGAIN)
