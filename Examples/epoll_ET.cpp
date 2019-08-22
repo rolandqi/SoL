@@ -18,11 +18,13 @@
 #include <strings.h>
 #include <fcntl.h>
 #include <errno.h>
-
+#include <iostream>
 
 #define MAX_EVENTS 10
 #define PORT 3389
 #define BUFSIZE 1024
+
+// using namespace std;
 
 void setnonblocking(int sockfd)
 {
@@ -53,6 +55,8 @@ int main()
         perror("Socket creation.");
 //        exit(1);
     }
+	int optval = 1;
+	setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
     setnonblocking(listenfd);
 
     memset(&servaddr, 0,  sizeof(sockaddr_in));
@@ -95,6 +99,9 @@ int main()
             {
                 if ((connfd = accept(listenfd, reinterpret_cast<sockaddr *>(&servaddr), &addrlen)) > 0)
                 {
+			std::cout<<"one sock ready"<<std::endl;
+		setsockopt(connfd, SOL_SOCKET, SO_RCVBUF, &optval, sizeof optval);
+
                     memset(&oneEvent, 0, sizeof oneEvent);
                     oneEvent.events = EPOLLIN | EPOLLET;
                     oneEvent.data.fd = connfd;
@@ -112,44 +119,53 @@ int main()
             }
             else if (events[i].events & EPOLLIN)
             {
+		std::cout<<"read ready"<<std::endl;
                 int n =0;
                 int nread = 0;
-                while ((nread = read(fd, buf + n, BUFSIZE - 1)) > 0)
+                while ((nread = read(fd, buf + n, 1)) > 0)
                 {
-                    n+= nread;
+		std::cout<<"reading"<<nread<<"bit"<<std::endl;
+                    
+		break;
+		n+= nread;
                 }
                 if(nread == -1 && errno != EAGAIN)
                 {
                     perror("read error");
                 }
+		else if (nread == 0)
+		{
+			std::cout<<"socket have been closed!"<<std::endl;
+			close(fd);
+			epoll_ctl(epfd, EPOLL_CTL_DEL, fd, nullptr);
+		}
                 memset(&oneEvent, 0, sizeof oneEvent);
                 oneEvent.events = events[i].events | EPOLLOUT;  // TODO 如果这个地方直接放EPOLLOUT， 不与上之前的events会怎样？
                 oneEvent.data.fd = fd;
-                if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &oneEvent) < 0)
-                {
-                    perror("epoll_ctl: mod");
-                }
+              //  if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &oneEvent) < 0)
+              //  {
+              //      perror("epoll_ctl: mod");
+              //  }
             }
-            else if (events[i].events & EPOLLOUT)
-            {
-                memset(&buf, 0, sizeof buf);
-                sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n小杰你好啊:)", 17);  // TODO 测试为什么会一直调用这个write.
-                int nwrite, datasize = strlen(buf);
-                int n = datasize;
-                while (n > 0)
-                {
-                    nwrite = write(fd, buf + datasize - n, n);
-                    if (nwrite == -1 && errno != EAGAIN)
-                    {
-                        perror("write error");
-                    }
-                    n -= nwrite;
-                }
-            }
+          //  else if (events[i].events & EPOLLOUT)
+          //  {
+	  //      std::cout<<"ready for EPOLLOUT"<<std::endl;
+          //      memset(&buf, 0, sizeof buf);
+          //      sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n小杰你好啊:)", 17);  // TODO 测试为什么会一直调用这个write.
+          //      int nwrite, datasize = strlen(buf);
+          //      int n = datasize;
+          //      while (n > 0)
+          //      {
+          //          nwrite = write(fd, buf + datasize - n, n);
+          //          if (nwrite == -1 && errno != EAGAIN)
+          //          {
+          //              perror("write error");
+          //          }
+          //          n -= nwrite;
+          //      }
+          //  }
         }
     }
     return 0;
 }
-
-
 
