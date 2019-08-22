@@ -1,10 +1,10 @@
 # README
 
-- [README](#README)
-  - [Introduction](#Introduction)
-  - [简单HTTP项目](#%E7%AE%80%E5%8D%95HTTP%E9%A1%B9%E7%9B%AE)
-    - [实现的功能](#%E5%AE%9E%E7%8E%B0%E7%9A%84%E5%8A%9F%E8%83%BD)
-    - [遇到的困难](#%E9%81%87%E5%88%B0%E7%9A%84%E5%9B%B0%E9%9A%BE)
+- [README](#readme)
+  - [Introduction](#introduction)
+  - [简单HTTP项目](#%e7%ae%80%e5%8d%95http%e9%a1%b9%e7%9b%ae)
+    - [实现的功能](#%e5%ae%9e%e7%8e%b0%e7%9a%84%e5%8a%9f%e8%83%bd)
+    - [遇到的困难](#%e9%81%87%e5%88%b0%e7%9a%84%e5%9b%b0%e9%9a%be)
 
 ---
 
@@ -12,15 +12,16 @@
 
 Welcome to SoL(Server on Linux). I init this repo to practice net programming on Linux.
 
-1. 我本着联系C++编程能力以及熟悉网络网络编程的目的开始本项目，刚开始只是想实现一个简单的HTTP server， 可以解析get、head请求， 可以处理静态资源，可以支持HTTP长连接。
+1. 我本着练习C++编程能力以及熟悉网络网络编程的目的开始本项目，刚开始只是想实现一个简单的HTTP server， 可以解析get、head请求， 可以处理静态资源，可以支持HTTP长连接。
    - 已经完成
 2. 随着研究的深入，我慢慢了解到了高性能服务器的优点，在尝试着阅读过一些源码（比如：muduo, Nginx, asio）,我试图仿照他们编写一个属于我自己的服务器，主要参考了muduo源码。
    - 正在进行
    - 目的：
      1. 使用智能指针（shared_ptr和weak_ptr）进行对象生命周期的管理
-     2. reactor模式
+     2. 设计自带缓冲区的IO
      3. 实现异步日志库
      4. 使用eventfd， timefd实现现成的异步唤醒和定时器的功能
+     5. 使用RAII包装文件描述符
 
 ## 简单HTTP项目
 
@@ -43,6 +44,5 @@ Welcome to SoL(Server on Linux). I init this repo to practice net programming on
   
 ### 遇到的困难
 
-1. reactor模式和平常接触的业务逻辑不同（工厂模式+单例模式+基本的posix编程）
-2. 多线程编程的竞态分析，我日常接触到的代码以单线程为主，就算遇到了多线程/多进程，也总是以最简单的semephore+共享内存解决问题。通过这次的学习，我学会了分析代码是否是线程安全的，在多线程编程中应该使用怎样的同步原语可以解决静态问题。
-3. 
+1. reactor模式和平常接触的业务逻辑不同（工厂模式+基本的posix编程）
+2. 多线程编程的竞态分析，我日常接触到的代码以单线程为主，就算遇到了多线程/多进程，也总是以最简单的semephore+共享内存解决问题。通过这次的学习，我学会了分析代码是否是线程安全的，在多线程编程中应该使用怎样的同步原语可以解决竞态问题。

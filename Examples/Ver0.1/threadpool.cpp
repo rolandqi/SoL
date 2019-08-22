@@ -95,7 +95,7 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
     pool->started = 0;
     pool->threads = new pthread_t[thread_count];
     pool->queue = vector<threadpool_task_t>(queue_size);  // 我在想更好的方法可能是用std::queue, 但是应该如何维护queue的最大size？
-    
+    ovb 
     if (pthread_mutex_init(&(pool->mutexLock), NULL) != 0 ||
     pthread_cond_init(&(pool->condLock), nullptr) != 0)
     {
@@ -198,7 +198,7 @@ void *threadpool_thread(void *threadpool)  // 声明 static 应该只为了使�
         pool->head = (pool->head + 1) % pool->queue_size;  // round-robin
         pool->count -= 1;
 
-        pthread_mutex_unlock(&(pool->mutexLock));
+        pthread_mutex_unlock(&(pool->mutexLock));  // 对queue的操作也必须放到锁里，也属于临界区
 
         /* Get to work */
         cout<<"thread go to work"<<endl;

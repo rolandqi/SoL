@@ -34,7 +34,6 @@ void setnonblocking(int sockfd)
     }
     opts |= O_NONBLOCK;
     if (fcntl(sockfd, F_SETFL, opts) < 0)
-    if (fcntl(sockfd, F_SETFL, opts) < 0)
     {
         perror("set flag.");
         // exit(1);

@@ -85,8 +85,7 @@ void acceptConnection(int listen_fd, int epoll_fd, const string &path)
         {
             perror("set non blocking error.");
         }
-        //这个地方为什么要用one shot？
-
+        //这个地方为什么要用one shot？ 接受了一次数据之后，发送给客户端一次，在发送完成之后，在request_data里面再把fd变成EPOLLIN+ONESHUT
         requestData *req_info = new requestData(epoll_fd, acceptfd, path);
         epoll_add(epoll_fd, acceptfd, reinterpret_cast<void *>(req_info), EPOLLIN | EPOLLET | EPOLLONESHOT);
         mytimer *mtimer = new mytimer(req_info, TIMER_TIME_OUT);
@@ -123,14 +122,13 @@ void handle_events(int epoll_fd, int listen_fd, struct epoll_event* events, int 
 
             // 将请求任务加入到线程池中
             // 加入线程池之前将Timer和request分离
-            cout<<"xianchengshi"<<endl;
             request->seperateTimer();
             int rc = threadpool_add(tp, myHandler, request, 0);
         }   
     }
 }
 
-/* 处理逻辑是这样的~
+/* 处理逻辑是这样的:
 因为(1) 优先队列不支持随机访问
 (2) 即使支持，随机删除某节点后破坏了堆的结构，需要重新更新堆结构。
 所以对于被置为deleted的时间节点，会延迟到它(1)超时 或 (2)它前面的节点都被删除时，它才会被删除。
@@ -145,7 +143,7 @@ void handle_expired_event()
     while (!myTimerQueue.empty())
     {
         mytimer *ptimer = myTimerQueue.top();
-        if (ptimer->isDeleted())
+        if (ptimer->isDeleted())  // 如果已经加入线程池了，那么这个timer就可以删除了
         {
             myTimerQueue.pop();
             delete ptimer;  // 之所以能在这里delete掉requestdata, 是因为timeout设置时间都很长，（并且用了oneshut），做一次之后，timeout结束之后就要删除
@@ -200,15 +198,14 @@ int main(int argc, char *argv[])
         int nready = epoll_waits(epollfd, events, MAXEVENTS, -1);
         if(nready == 0)
         {
-            continue;  // TODO 什么时间会返回0ready?
+            continue;  // 什么时间会返回0ready? 达到timeout时间还是没有任何fd ready
         }
         else if (nready < 0)
         {
             break;
         }
-        cout<<"nready"<<nready<<endl;
         handle_events(epollfd, listen_fd, events, nready, PATH, threadpool);
-        // handle_expired_event();
+        handle_expired_event();
     }
     return 0;
 }
