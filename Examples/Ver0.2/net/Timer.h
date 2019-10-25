@@ -1,34 +1,24 @@
 /*
  * @Description: qikai's network library
  * @Author: qikai
- * @Date: 2019-10-16 13:37:19
+ * @Date: 2019-10-17 09:52:02
  * @LastEditors: qikai
- * @LastEditTime: 2019-10-16 13:37:19
+ * @LastEditTime: 2019-10-17 11:46:44
  */
-/*
- * Timer.h
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
- */
-
 #ifndef NET_TIMER_H_
 #define NET_TIMER_H_
 
-#include "HttpData.h"
-#include "base/noncopyable.h"
-#include "base/MutexLock.h"
+#include "../base/Mutex.h"
+#include "Channel.h"
 #include <unistd.h>
 #include <memory>
 #include <queue>
 #include <deque>
 
-class HttpData;
-
 class TimerNode
 {
 public:
-    TimerNode(std::shared_ptr<HttpData> requestData, int timeout);
+    TimerNode(std::shared_ptr<Channel> requestData, int timeout);
     ~TimerNode();
     TimerNode(TimerNode &tn);
     void update(int timeout);
@@ -41,7 +31,7 @@ public:
 private:
     bool deleted_;
     size_t expiredTime_;
-    std::shared_ptr<HttpData> SPHttpData;
+    std::shared_ptr<Channel> request_data;
 };
 
 struct TimerCmp
@@ -57,13 +47,13 @@ class TimerManager
 public:
     TimerManager();
     ~TimerManager();
-    void addTimer(std::shared_ptr<HttpData> SPHttpData, int timeout);
+    void addTimer(std::shared_ptr<Channel> requestData, int timeout);
     void handleExpiredEvent();
 
 private:
     typedef std::shared_ptr<TimerNode> SPTimerNode;
     std::priority_queue<SPTimerNode, std::deque<SPTimerNode>, TimerCmp> timerNodeQueue;
-    //MutexLock lock;
+    MutexLock lock;
 };
 
 

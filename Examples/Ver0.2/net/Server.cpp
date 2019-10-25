@@ -1,25 +1,11 @@
 /*
  * @Description: qikai's network library
  * @Author: qikai
- * @Date: 2019-10-16 13:37:19
+ * @Date: 2019-10-17 13:40:17
  * @LastEditors: qikai
- * @LastEditTime: 2019-10-16 13:37:19
+ * @LastEditTime: 2019-10-18 14:21:25
  */
-/*
- * Server.cpp
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
- */
-
 #include "Server.h"
-#include "base/Logging.h"
-#include "Util.h"
-#include <functional>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-
 
 Server::Server(EventLoop *loop, int threadNum, int port)
 :   loop_(loop),
@@ -29,6 +15,8 @@ Server::Server(EventLoop *loop, int threadNum, int port)
     acceptChannel_(new Channel(loop_)),
     port_(port),
     listenFd_(socket_bind_listen(port_))
+    // connectionCallback_(defaultConnectionCallback),
+    // messageCallback_(defaultMessageCallback)
 {
     acceptChannel_->setFd(listenFd_);
     handle_for_sigpipe();
@@ -36,6 +24,14 @@ Server::Server(EventLoop *loop, int threadNum, int port)
     {
         perror("set socket non block failed");
         abort();
+    }
+}
+
+Server::~Server()
+{
+    if (listenFd_)
+    {
+        close(listenFd_);
     }
 }
 
@@ -59,7 +55,7 @@ void Server::handNewConn()
     while((accept_fd = accept(listenFd_, (struct sockaddr*)&client_addr, &client_addr_len)) > 0)
     {
         EventLoop *loop = eventLoopThreadPool_->getNextLoop();
-        LOG << "New connection from " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port);
+        cout << "New connection from " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) << endl;
         // cout << "new connection" << endl;
         // cout << inet_ntoa(client_addr.sin_addr) << endl;
         // cout << ntohs(client_addr.sin_port) << endl;
@@ -79,30 +75,31 @@ void Server::handNewConn()
         // 设为非阻塞模式
         if (setSocketNonBlocking(accept_fd) < 0)
         {
-            LOG << "Set non block failed!";
+            cout << "Set non block failed!"<<endl;
             //perror("Set non block failed!");
             return;
         }
 
         setSocketNodelay(accept_fd);
         //setSocketNoLinger(accept_fd);
-
-        shared_ptr<HttpData> req_info(new HttpData(loop, accept_fd));
-        req_info->getChannel()->setHolder(req_info);
-        loop->queueInLoop(std::bind(&HttpData::newEvent, req_info));
+        shared_ptr<Channel> newChannel = make_shared<Channel>(loop);
+        newChannel->setFd(accept_fd);
+        newChannel->setCliAddr(client_addr);
+        newChannel->setEvents(EPOLLIN | EPOLLET);
+        newChannel->setReadHandler(bind(&Server::messageCallback, this, _1));
+        newChannel->setConnHandler(bind(&Server::connectionCallback, this, _1));
+        loop->addToPoller(newChannel, 0);
+        // 做一个dummy任务来wake worker reactor
+        loop->queueInLoop(std::bind(&Channel::wakeFunctor, newChannel));
     }
     acceptChannel_->setEvents(EPOLLIN | EPOLLET);
 }
 
-  void setConnectionCallback(const ConnectionCallback& cb)
-  { connectionCallback_ = cb; }
+void defaultConnectionCallback(const struct sockaddr_in& request)
+{
+}
 
-  /// Set message callback.
-  /// Not thread safe.
-  void setMessageCallback(const MessageCallback& cb)
-  { messageCallback_ = cb; }
-
-  /// Set write complete callback.
-  /// Not thread safe.
-  void setWriteCompleteCallback(const WriteCompleteCallback& cb)
-  { writeCompleteCallback_ = cb; }
+void defaultMessageCallback(const int& fd)
+{
+    cout<< "fd " << fd <<endl;
+}

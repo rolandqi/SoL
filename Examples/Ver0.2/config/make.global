@@ -1,0 +1,29 @@
+# make flag
+MAKEFLAG :=
+
+# compile marcro
+CC := g++
+
+# compile flags
+# -lrt for clock_gettime
+CCFLAG := -std=c++11 -g -Wall -O3 -pthread -lrt
+OBJCCFLAG := $(CCFLAG) -c
+
+# recursive make and clean
+.PHONY: build-subdirs
+build-subdirs: $(DIRS)
+
+.PHONY: $(DIRS)
+$(DIRS):
+	@$(MAKE) $(MAKEFLAG) -C $@ all
+	
+.PHONY: clean-subdirs
+clean-subdirs:
+	@for dir in $(DIRS); do \
+		$(MAKE) $(MAKEFLAG) -C $$dir clean; \
+	done
+
+# dependencies
+%.o: %.c*
+	@echo -e "\t" CC $(OBJCCFLAG) $< -o $@
+	@$(CC) $(OBJCCFLAG) $< -o $@
