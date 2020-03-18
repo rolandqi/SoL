@@ -33,7 +33,7 @@ void Epoll::epoll_add(SP_Channel request, int timeout)
     struct epoll_event event;
     event.data.fd = fd;
     event.events = request->getEvents();
-    // cout<< "epoll add fd " << fd << " events: " << event.events << endl;
+    // LOG_INFO << "epoll add fd " << fd << " events: " << event.events;
 
     request->EqualAndUpdateLastEvents();
 
@@ -88,7 +88,8 @@ void Epoll::poll(int timeoutMs, vector<SP_Channel>* activeChannels)
     int event_count = epoll_wait(epollFd_, &*events_.begin(), events_.size(), timeoutMs);
     if (event_count < 0)
         perror("epoll wait error");
-    activeChannels->swap(getEventsRequest(event_count));
+    std::vector<shared_ptr<Channel>> requests = getEventsRequest(event_count);
+    activeChannels->assign(requests.begin(), requests.end());
 }
 
 void Epoll::handleExpired()
@@ -116,7 +117,7 @@ std::vector<shared_ptr<Channel>> Epoll::getEventsRequest(int events_num)
         }
         else
         {
-            std::cout << "SP cur_req is invalid"<<std::endl;
+            LOG_INFO << "SP cur_req is invalid";
         }
     }
     return req_data;
@@ -128,5 +129,5 @@ void Epoll::add_timer(SP_Channel request_data, int timeout)
     // if (request_data)  
     //     timerManager_.addTimer(t, timeout);
     // else
-    //     std::cout << "timer add fail"<<endl;
+    //     LOG_INFO << "timer add fail";
 }

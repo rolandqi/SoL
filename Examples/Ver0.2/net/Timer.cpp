@@ -80,7 +80,7 @@ void TimerManager::addTimer(std::shared_ptr<Channel> requestData, int timeout)
 
 void TimerManager::handleExpiredEvent()
 {
-    MutexLockGuard locker(lock);
+    base::MutexLockGuard locker(lock_);
     while (!timerNodeQueue.empty())
     {
         SPTimerNode ptimer_now = timerNodeQueue.top();

@@ -55,16 +55,16 @@ void Server::handNewConn()
     while((accept_fd = accept(listenFd_, (struct sockaddr*)&client_addr, &client_addr_len)) > 0)
     {
         EventLoop *loop = eventLoopThreadPool_->getNextLoop();
-        cout << "New connection from " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) << endl;
-        // cout << "new connection" << endl;
-        // cout << inet_ntoa(client_addr.sin_addr) << endl;
-        // cout << ntohs(client_addr.sin_port) << endl;
+        LOG_INFO << "New connection from " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port);
+        // LOG_INFO << "new connection";
+        // LOG_INFO << inet_ntoa(client_addr.sin_addr);
+        // LOG_INFO << ntohs(client_addr.sin_port);
         /*
         // TCP的保活机制默认是关闭的
         int optval = 0;
         socklen_t len_optval = 4;
         getsockopt(accept_fd, SOL_SOCKET,  SO_KEEPALIVE, &optval, &len_optval);
-        cout << "optval ==" << optval << endl;
+        LOG_INFO << "optval ==" << optval;
         */
         // 限制服务器的最大并发连接数
         if (accept_fd >= MAXFDS)
@@ -75,7 +75,7 @@ void Server::handNewConn()
         // 设为非阻塞模式
         if (setSocketNonBlocking(accept_fd) < 0)
         {
-            cout << "Set non block failed!"<<endl;
+            LOG_INFO << "Set non block failed!";
             //perror("Set non block failed!");
             return;
         }
@@ -101,5 +101,5 @@ void defaultConnectionCallback(const struct sockaddr_in& request)
 
 void defaultMessageCallback(const int& fd)
 {
-    cout<< "fd " << fd <<endl;
+    LOG_INFO << "fd " << fd;
 }

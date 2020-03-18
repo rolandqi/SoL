@@ -18,7 +18,7 @@ public:
 
     ~EventLoopThreadPool()
     {
-        cout << "~EventLoopThreadPool()"<<endl;
+        LOG_INFO << "~EventLoopThreadPool()";
     }
     void start();
 

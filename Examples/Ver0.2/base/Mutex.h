@@ -11,10 +11,12 @@
 #include <assert.h>
 #include <pthread.h>
 #include <stddef.h>
+#include "types.h"
+#include "logging.h"
 
 #define MCHECK(ret) ({ __typeof__ (ret) errnum = (ret);         \
                        assert(errnum == 0); (void) errnum;})
-
+namespace base {
 class MutexLock
 {
 public:
@@ -66,5 +68,5 @@ private:
 #define MutexLockGuard(x) error "Missing mutex guard object name"
 
 
-
+}
 #endif /* BASE_MUTEX_H_ */

@@ -22,7 +22,7 @@ Client::Client(EventLoop *loop, int threadNum, int port)
     started_(false),
     clientChannel_(new Channel(loop_)),
     port_(port),
-    clientFd_(socket_connect(const_cast<char*>(IPADDRESS), SERV_PORT))
+    clientFd_(socket_connect(const_cast<char*>(IPADDRESS), port_))
     // connectionCallback_(defaultConnectionCallback),
     // messageCallback_(defaultMessageCallback)
 {

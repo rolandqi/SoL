@@ -32,7 +32,7 @@ EventLoop* EventLoopThread::startLoop()
     assert(!thread_.started());
     thread_.start();
     {
-        MutexLockGuard lock(mutex_);
+        base::MutexLockGuard lock(mutex_);
         // 一直等到threadFun在Thread里真正跑起来
         while (loop_ == NULL)
             cond_.wait();
@@ -45,7 +45,7 @@ void EventLoopThread::threadFunc()
     EventLoop loop;
 
     {
-        MutexLockGuard lock(mutex_);
+        base::MutexLockGuard lock(mutex_);
         loop_ = &loop;
         cond_.notify();
     }

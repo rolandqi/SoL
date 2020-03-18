@@ -10,7 +10,7 @@
 
 #include "Mutex.h"
 #include <pthread.h>
-
+namespace base {
 class Condition
 {
 public:
@@ -45,8 +45,9 @@ public:
 
 private:
 
-     MutexLock& mutex_;
-     pthread_cond_t pcond_;
+    base::MutexLock& mutex_;
+    pthread_cond_t pcond_;
 };
+}
 
 #endif /* BASE_CONDITION_H_ */

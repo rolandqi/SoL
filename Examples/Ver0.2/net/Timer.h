@@ -53,7 +53,7 @@ public:
 private:
     typedef std::shared_ptr<TimerNode> SPTimerNode;
     std::priority_queue<SPTimerNode, std::deque<SPTimerNode>, TimerCmp> timerNodeQueue;
-    MutexLock lock;
+    base::MutexLock lock_;
 };
 
 

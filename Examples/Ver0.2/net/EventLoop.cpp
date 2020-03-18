@@ -8,6 +8,8 @@
 #include "EventLoop.h"
 #include <sys/eventfd.h>
 
+using namespace base;
+
 // epoll调用的超时事件，默认10s
 const int kPollTimeMs = 10000;
 
@@ -16,7 +18,7 @@ int createEventfd()
   int evtfd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
   if (evtfd < 0)
   {
-    cout << "Failed in eventfd";
+    LOG_INFO << "Failed in eventfd";
     abort();
   }
   return evtfd;
@@ -35,7 +37,7 @@ void EventLoop::loop()
         }
         doPendingFunctors();
     }
-    cout<<"end looping in "<< this <<endl;
+    LOG_INFO <<"end looping in "<< this;
     looping = false;  // TODO: quit looping mechnism.
 }
 
@@ -46,7 +48,7 @@ EventLoop::EventLoop()
     callingPendingFunctors_(false),
     pwakeupChannel_(new Channel(this, wakeupFd_))
 {
-    cout<<"Event loop created in " << this << endl; 
+    LOG_INFO <<"Event loop created in " << this; 
     pwakeupChannel_->setEvents(EPOLLIN | EPOLLET);
     pwakeupChannel_->setReadHandler(bind(&EventLoop::handleRead, this));
     pwakeupChannel_->setConnHandler(bind(&EventLoop::handleConn, this));
@@ -59,7 +61,7 @@ void EventLoop::handleRead()
     ssize_t n = readn(wakeupFd_, &one, sizeof one);
     if (n != sizeof one)
     {
-        cout << "EventLoop::handleRead() reads " << n << " bytes instead of 8" << endl;
+        LOG_INFO << "EventLoop::handleRead() reads " << n << " bytes instead of 8";
     }
     //pwakeupChannel_->setEvents(EPOLLIN | EPOLLET | EPOLLONESHOT);
     pwakeupChannel_->setEvents(EPOLLIN | EPOLLET);
@@ -73,7 +75,7 @@ void EventLoop::handleConn()
 
 EventLoop::~EventLoop() 
 {
-    cout<<"Event loop deleted in " << this << endl;
+    LOG_INFO <<"Event loop deleted in " << this;
     close(wakeupFd_);
     removeFromPoller(pwakeupChannel_);
 }
@@ -86,7 +88,7 @@ void EventLoop::runInLoop(Functor&& cb)
 void EventLoop::queueInLoop(Functor&& cb)
 {
     {
-        MutexLockGuard lock(mutex);
+       base::MutexLockGuard lock(mutex);
         pendingFunctors_.push_back(std::move(cb));
     }
 
@@ -100,7 +102,7 @@ void EventLoop::doPendingFunctors()
     callingPendingFunctors_ = true;
 
     {
-        MutexLockGuard lock(mutex);
+        base::MutexLockGuard lock(mutex);
         functors.swap(pendingFunctors_);  // clean pending functors
     }
 
@@ -116,6 +118,6 @@ void EventLoop::wakeup()
     ssize_t n = writen(wakeupFd_, (char*)(&one), sizeof one);
     if (n != sizeof one)
     {
-        cout<< "EventLoop::wakeup() writes " << n << " bytes instead of 8"<<endl;
+        LOG_INFO << "EventLoop::wakeup() writes " << n << " bytes instead of 8";
     }
 }

@@ -17,6 +17,7 @@
 
 using namespace std;
 
+namespace base {
 class Thread
 {
 public:
@@ -43,6 +44,6 @@ private:
     // CountDownLatch latch_;
     static int numCreated_;
 };
-
+}
 
 #endif /* BASE_THREAD_H_ */

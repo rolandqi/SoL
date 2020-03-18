@@ -47,7 +47,7 @@ private:
     bool callingPendingFunctors_;
     vector<Functor> pendingFunctors_;
     shared_ptr<Channel> pwakeupChannel_;
-    MutexLock mutex;
+    base::MutexLock mutex;
     vector<std::shared_ptr<Channel>> activeChannels;
     bool looping;
     void wakeup();

@@ -21,6 +21,7 @@
 #include <netinet/tcp.h>
 #include <time.h>
 #include <iostream>
+#include "../base/logging.h"
 
 ssize_t readn(int fd, void *buff, size_t n);
 ssize_t readn(int fd, std::string &inBuffer, bool &zero);

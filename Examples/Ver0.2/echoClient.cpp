@@ -23,26 +23,26 @@ void echoClientRead(int fd)
     int nread = readn(fd, &size, 1);  // read out the lenth of the data.
     if (nread != 1)
     {
-        cout << "Receiving data error in fd: " << fd << endl;
+        LOG_INFO << "Receiving data error in fd: " << fd;
     }
     char* buffer = new char[size];
     memset(buffer, 0, size);
     nread = readn(fd, buffer, size);
     if (size > 0)
     {
-        cout<< "receiving data size: "<< static_cast<int>(size) << endl;
-        cout << "Receiving data :" << buffer << endl;
+        LOG_INFO << "receiving data size: "<< static_cast<int>(size);
+        LOG_INFO << "Receiving data :" << buffer;
     }
     if (nread != size)
     {
-        cout << "Receiving data error in fd: " << fd << endl;
+        LOG_INFO << "Receiving data error in fd: " << fd;
     }
     delete buffer;
 }
 
 void echoClientConnection(int fd)
 {
-    cout << "Server connected!" <<endl;
+    LOG_INFO << "Server connected!";
     echoContent myContent;
     myContent.size = 6;
     memmove(&myContent.body, "HELLO", 6);
@@ -52,14 +52,14 @@ void echoClientConnection(int fd)
     // int nwrite = writen(fd, &size, 1);
     // if (nwrite != 1)
     // {
-    //     cout<< "write size failed! size : " << static_cast<int>(size) << endl;
+    //     LOG_INFO << "write size failed! size : " << static_cast<int>(size);
     // }
     // char buffer[MAX_SIZE] = "HELLO";
     // nwrite = writen(fd, reinterpret_cast<char*>(&buffer), static_cast<int>(size));
     int nwrite = writen(fd, reinterpret_cast<char*>(&myContent), static_cast<int>(myContent.size) + 1);
     if (nwrite != size + 1)
     {
-        cout<< "write failed!" << endl;
+        LOG_INFO << "write failed!";
     }
 }
 

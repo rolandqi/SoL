@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <time.h>
 #include <sys/types.h>
-
+namespace base {
 // returns true if time out, false otherwise.
 bool Condition::waitForSeconds(double seconds)
 {
@@ -24,7 +24,7 @@ bool Condition::waitForSeconds(double seconds)
   abstime.tv_sec += static_cast<time_t>((abstime.tv_nsec + nanoseconds) / kNanoSecondsPerSecond);
   abstime.tv_nsec = static_cast<long>((abstime.tv_nsec + nanoseconds) % kNanoSecondsPerSecond);
 
-  MutexLockGuard lock(mutex_);
+  base::MutexLockGuard lock(mutex_);
   return ETIMEDOUT == pthread_cond_timedwait(&pcond_, mutex_.get(), &abstime);
 }
-
+}

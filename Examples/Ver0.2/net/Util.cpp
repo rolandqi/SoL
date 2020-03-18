@@ -268,6 +268,6 @@ int socket_connect(char *addr, int port)
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(port);
     connect(sockfd, reinterpret_cast<sockaddr *>(&servaddr), sizeof servaddr);   // client 连接到服务器，三次握手成功之后才返回
-    std::cout << "connect success! fd: " << sockfd <<std::endl;
+    LOG_INFO << "connect success! fd: " << sockfd;
     return sockfd;
 }
