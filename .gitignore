@@ -34,3 +34,4 @@
 # Otheres
 core
 .vscode
+build/*

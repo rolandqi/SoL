@@ -1,8 +1,9 @@
 /*
- * EventLoopThreadPool.cpp
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-17 14:03:53
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-17 15:20:22
  */
 
 #include "EventLoopThreadPool.h"
@@ -15,14 +16,13 @@ EventLoopThreadPool::EventLoopThreadPool(EventLoop* baseLoop, int numThreads)
 {
     if (numThreads_ <= 0)
     {
-        LOG << "numThreads_ <= 0";
+        LOG_INFO << "numThreads_ <= 0";
         abort();
     }
 }
 
 void EventLoopThreadPool::start()
 {
-    baseLoop_->assertInLoopThread();
     started_ = true;
     for (int i = 0; i < numThreads_; ++i)
     {
@@ -34,7 +34,6 @@ void EventLoopThreadPool::start()
 
 EventLoop *EventLoopThreadPool::getNextLoop()
 {
-    baseLoop_->assertInLoopThread();
     assert(started_);
     EventLoop *loop = baseLoop_;
     if (!loops_.empty())

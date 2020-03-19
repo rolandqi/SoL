@@ -1,20 +1,12 @@
 /*
- * Util.cpp
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-16 14:42:58
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-18 15:58:46
  */
 
-
 #include "Util.h"
-#include <unistd.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
 
 const int MAX_BUFF = 4096;
 ssize_t readn(int fd, void *buff, size_t n)
@@ -122,12 +114,11 @@ ssize_t readn(int fd, std::string &inBuffer)
 }
 
 
-ssize_t writen(int fd, void *buff, size_t n)
+ssize_t writen(int fd, char *ptr, size_t n)
 {
     size_t nleft = n;
     ssize_t nwritten = 0;
     ssize_t writeSum = 0;
-    char *ptr = (char*)buff;
     while (nleft > 0)
     {
         if ((nwritten = write(fd, ptr, nleft)) <= 0)
@@ -268,3 +259,15 @@ int socket_bind_listen(int port)
     return listen_fd;
 }
 
+int socket_connect(char *addr, int port)
+{
+    sockaddr_in servaddr;
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    bzero(&servaddr, sizeof servaddr);
+    inet_pton(AF_INET, addr, &servaddr.sin_addr);
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(port);
+    connect(sockfd, reinterpret_cast<sockaddr *>(&servaddr), sizeof servaddr);   // client 连接到服务器，三次握手成功之后才返回
+    LOG_INFO << "connect success! fd: " << sockfd;
+    return sockfd;
+}

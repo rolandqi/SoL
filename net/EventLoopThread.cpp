@@ -1,10 +1,10 @@
 /*
- * EventLoopThread..cpp
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-17 14:19:17
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-17 15:19:36
  */
-
 #include "EventLoopThread.h"
 #include <functional>
 
@@ -22,7 +22,7 @@ EventLoopThread::~EventLoopThread()
     exiting_ = true;
     if (loop_ != NULL)
     {
-        loop_->quit();
+        // TODO loop_->quit();
         thread_.join();
     }
 }
@@ -32,7 +32,7 @@ EventLoop* EventLoopThread::startLoop()
     assert(!thread_.started());
     thread_.start();
     {
-        MutexLockGuard lock(mutex_);
+        base::MutexLockGuard lock(mutex_);
         // 一直等到threadFun在Thread里真正跑起来
         while (loop_ == NULL)
             cond_.wait();
@@ -45,13 +45,13 @@ void EventLoopThread::threadFunc()
     EventLoop loop;
 
     {
-        MutexLockGuard lock(mutex_);
+        base::MutexLockGuard lock(mutex_);
         loop_ = &loop;
         cond_.notify();
     }
 
     loop.loop();
-    //assert(exiting_);
+    assert(exiting_);
     loop_ = NULL;
 }
 

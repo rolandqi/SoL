@@ -1,80 +1,59 @@
 /*
- * EventLoop.cpp
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-16 14:16:07
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-18 15:40:24
  */
 
-#ifndef NET_EVENTLOOP_CPP_
-#define NET_EVENTLOOP_CPP_
+#ifndef NET_EVENTLOOP_H
+#define NET_EVENTLOOP_H
 
-#include "base/Thread.h"
+
+#include "../base/Thread.h"
+#include "../base/Mutex.h"
 #include "Epoll.h"
-//#include "base/Logging.h"
 #include "Channel.h"
-#include "base/CurrentThread.h"
-#include "Util.h"
-#include <vector>
-#include <memory>
-#include <functional>
 
+#include <vector>
 #include <iostream>
+
 using namespace std;
 
-
-class EventLoop
-{
+class EventLoop {
 public:
-    typedef std::function<void()> Functor;
+    typedef std::function<void ()> Functor;
     EventLoop();
     ~EventLoop();
     void loop();
-    void quit();
     void runInLoop(Functor&& cb);
     void queueInLoop(Functor&& cb);
-    bool isInLoopThread() const { return threadId_ == CurrentThread::tid(); }
-    void assertInLoopThread()
+    inline void removeFromPoller(shared_ptr<Channel> channel)
     {
-        assert(isInLoopThread());
+        poller->epoll_del(channel);
     }
-    void shutdown(shared_ptr<Channel> channel)
+    inline void updatePoller(shared_ptr<Channel> channel, int timeout = 0)
     {
-        shutDownWR(channel->getFd());
+        poller->epoll_mod(channel, timeout);
     }
-    void removeFromPoller(shared_ptr<Channel> channel)
+    inline void addToPoller(shared_ptr<Channel> channel, int timeout = 0)
     {
-        //shutDownWR(channel->getFd());
-        poller_->epoll_del(channel);
-    }
-    void updatePoller(shared_ptr<Channel> channel, int timeout = 0)
-    {
-        poller_->epoll_mod(channel, timeout);
-    }
-    void addToPoller(shared_ptr<Channel> channel, int timeout = 0)
-    {
-        poller_->epoll_add(channel, timeout);
+        poller->epoll_add(channel, timeout);
     }
 
 private:
-    //  声明书序 wakeupFd_ > pwakeupChannel_
-    bool looping_;
-    shared_ptr<Epoll> poller_;
+    shared_ptr<Epoll> poller;
     int wakeupFd_;
-    bool quit_;
-    bool eventHandling_;
-    mutable MutexLock mutex_;
-    std::vector<Functor> pendingFunctors_;
     bool callingPendingFunctors_;
-    const pid_t threadId_;
+    vector<Functor> pendingFunctors_;
     shared_ptr<Channel> pwakeupChannel_;
-
+    base::MutexLock mutex;
+    vector<std::shared_ptr<Channel>> activeChannels;
+    bool looping;
     void wakeup();
     void handleRead();
     void doPendingFunctors();
     void handleConn();
 };
 
-
-
-
-#endif /* NET_EVENTLOOP_CPP_ */
+#endif

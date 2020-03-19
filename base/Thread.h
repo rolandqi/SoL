@@ -1,18 +1,12 @@
 /*
- * Thread.h
- *
- *  Created on: Jul 22, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-16 15:23:30
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-17 15:11:58
  */
-
 #ifndef BASE_THREAD_H_
 #define BASE_THREAD_H_
-
-#include "base/CountDownLatch.h"
-#include "base/noncopyable.h"
-#include "base/Atomic.h"
-
-
 
 #include <functional>
 #include <memory>
@@ -20,14 +14,16 @@
 #include <string>
 #include <sys/syscall.h>
 #include <unistd.h>
-#include <string>
 
-class Thread : noncopyable
+using namespace std;
+
+namespace base {
+class Thread
 {
 public:
     typedef std::function<void()> ThreadFunc;
 
-    explicit Thread(ThreadFunc, const std::string& name = std::string());
+    explicit Thread(ThreadFunc func, const std::string& name = std::string());
     ~Thread();
 
     void start();
@@ -35,7 +31,7 @@ public:
     bool started() const {return started_;}
     pid_t tid() const {return tid_;}
     const std::string & name() const {return name_;}
-    static int numCreated() {return numCreated_.get();}  // TODO 这个函数能写成const吗？
+    static int numCreated() {return numCreated_;}  // TODO 这个函数能写成const吗？
 
 private:
     void setDefaultName();
@@ -45,9 +41,9 @@ private:
     pid_t tid_;
     ThreadFunc func_;
     std::string name_;
-    CountDownLatch latch_;
-    static AtomicInt32 numCreated_;
+    // CountDownLatch latch_;
+    static int numCreated_;
 };
-
+}
 
 #endif /* BASE_THREAD_H_ */

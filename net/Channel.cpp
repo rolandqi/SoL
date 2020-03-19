@@ -1,19 +1,19 @@
 /*
- * Channel.cpp
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-16 15:23:15
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-18 11:40:37
  */
 
-#include "Channel.h"
-#include "Util.h"
-#include "Epoll.h"
-#include "EventLoop.h"
 #include <unistd.h>
 #include <queue>
 #include <cstdlib>
 #include <iostream>
-using namespace std;
+#include "Channel.h"
+#include "Epoll.h"
+#include "EventLoop.h"
+
 
 Channel::Channel(EventLoop *loop):
     loop_(loop),
@@ -30,7 +30,7 @@ Channel::Channel(EventLoop *loop, int fd):
 
 Channel::~Channel()
 {
-    //loop_->poller_->epoll_del(fd, events_);
+    //loop_->poller->epoll_del(fd, events_);
     //close(fd_);
 }
 
@@ -47,7 +47,7 @@ void Channel::handleRead()
 {
     if (readHandler_)
     {
-        readHandler_();
+        readHandler_(fd_);
     }
 }
 
@@ -63,8 +63,6 @@ void Channel::handleConn()
 {
     if (connHandler_)
     {
-        connHandler_();
+        connHandler_(sock_addr);
     }
 }
-
-

@@ -1,16 +1,16 @@
 /*
- * Condition.cpp
- *
- *  Created on: Jul 22, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-16 18:18:46
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-17 17:47:51
  */
-
-#include "base/Condition.h"
+#include "Condition.h"
 
 #include <errno.h>
 #include <time.h>
 #include <sys/types.h>
-
+namespace base {
 // returns true if time out, false otherwise.
 bool Condition::waitForSeconds(double seconds)
 {
@@ -24,12 +24,7 @@ bool Condition::waitForSeconds(double seconds)
   abstime.tv_sec += static_cast<time_t>((abstime.tv_nsec + nanoseconds) / kNanoSecondsPerSecond);
   abstime.tv_nsec = static_cast<long>((abstime.tv_nsec + nanoseconds) % kNanoSecondsPerSecond);
 
-  MutexLock::UnassignGuard ug(mutex_);
-  return ETIMEDOUT == pthread_cond_timedwait(&pcond_, mutex_.getPthreadMutex(), &abstime);
+  base::MutexLockGuard lock(mutex_);
+  return ETIMEDOUT == pthread_cond_timedwait(&pcond_, mutex_.get(), &abstime);
 }
-
-
-
-
-
-
+}

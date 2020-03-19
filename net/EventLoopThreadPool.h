@@ -1,27 +1,24 @@
 /*
- * EventLoopThreadPool.h
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-17 14:03:48
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-17 19:32:04
  */
-
 #ifndef NET_EVENTLOOPTHREADPOOL_H_
 #define NET_EVENTLOOPTHREADPOOL_H_
 
-#include "base/noncopyable.h"
 #include "EventLoopThread.h"
-#include "base/Logging.h"
-#include <memory>
 #include <vector>
 
-class EventLoopThreadPool : noncopyable
+class EventLoopThreadPool
 {
 public:
     EventLoopThreadPool(EventLoop* baseLoop, int numThreads);
 
     ~EventLoopThreadPool()
     {
-        LOG << "~EventLoopThreadPool()";
+        LOG_INFO << "~EventLoopThreadPool()";
     }
     void start();
 

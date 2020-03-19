@@ -1,25 +1,26 @@
 /*
- * Channel.h
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-16 15:23:09
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-18 15:52:19
  */
-
 #ifndef NET_CHANNEL_H_
 #define NET_CHANNEL_H_
 
-#include "Timer.h"
 #include <string>
 #include <unordered_map>
 #include <memory>
 #include <sys/epoll.h>
 #include <functional>
 #include <sys/epoll.h>
+#include "Util.h"
+#include <iostream>
+#include <sys/socket.h>
 
+using namespace std;
 
-class EventLoop;
-class HttpData;
-
+struct EventLoop;  // 前向声明
 
 class Channel
 {
@@ -30,19 +31,18 @@ private:
     __uint32_t events_;
     __uint32_t revents_;
     __uint32_t lastEvents_;
-
-    // 方便找到上层持有该Channel的对象
-    std::weak_ptr<HttpData> holder_;
+    struct sockaddr_in sock_addr;
 
 private:
-    int parse_URI();
-    int parse_Headers();
-    int analysisRequest();
-
-    CallBack readHandler_;
+    typedef function<void (const int&)> MessageCallback;
+    typedef function<void (const struct sockaddr_in&)> WriteCompleteCallback;
+    typedef function<void (const struct sockaddr_in&)> ConnectionCallback;
+    MessageCallback readHandler_;
     CallBack writeHandler_;
     CallBack errorHandler_;
-    CallBack connHandler_;
+    ConnectionCallback connHandler_;
+
+
 
 public:
     Channel(EventLoop *loop);
@@ -50,18 +50,12 @@ public:
     ~Channel();
     int getFd();
     void setFd(int fd);
-
-    void setHolder(std::shared_ptr<HttpData> holder)
+    void setCliAddr(const sockaddr_in& request)
     {
-        holder_ = holder;
-    }
-    std::shared_ptr<HttpData> getHolder()
-    {
-        std::shared_ptr<HttpData> ret(holder_.lock());
-        return ret;
+        memmove(&sock_addr, &request, sizeof(sockaddr_in));
     }
 
-    void setReadHandler(CallBack &&readHandler)
+    void setReadHandler(MessageCallback &&readHandler)
     {
         readHandler_ = readHandler;
     }
@@ -73,7 +67,7 @@ public:
     {
         errorHandler_ = errorHandler;
     }
-    void setConnHandler(CallBack &&connHandler)
+    void setConnHandler(ConnectionCallback &&connHandler)
     {
         connHandler_ = connHandler;
     }
@@ -100,12 +94,13 @@ public:
         {
             handleWrite();
         }
-        handleConn();
+        // handleConn();  // not implement when not using ONESHUT
     }
     void handleRead();
     void handleWrite();
     void handleError(int fd, int err_num, std::string short_msg);
     void handleConn();
+    void wakeFunctor(){}
 
     void setRevents(__uint32_t ev)
     {
@@ -134,9 +129,6 @@ public:
     }
 
 };
-
-typedef std::shared_ptr<Channel> SP_Channel;
-
 
 
 #endif /* NET_CHANNEL_H_ */

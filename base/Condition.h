@@ -1,17 +1,17 @@
 /*
- * Condition.h
- *
- *  Created on: Jul 22, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-16 18:19:04
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-16 20:01:14
  */
-
 #ifndef BASE_CONDITION_H_
 #define BASE_CONDITION_H_
 
-#include "base/Mutex.h"
+#include "Mutex.h"
 #include <pthread.h>
-
-class Condition : noncopyable
+namespace base {
+class Condition
 {
 public:
     explicit Condition(MutexLock& mutex)
@@ -27,7 +27,7 @@ public:
 
     void wait()
     {
-      MCHECK(pthread_cond_wait(&pcond_, mutex_.getPthreadMutex()));
+      MCHECK(pthread_cond_wait(&pcond_, mutex_.get()));
     }
 
     // returns true if time out, false otherwise.
@@ -45,8 +45,9 @@ public:
 
 private:
 
-     MutexLock& mutex_;
-     pthread_cond_t pcond_;
+    base::MutexLock& mutex_;
+    pthread_cond_t pcond_;
 };
+}
 
 #endif /* BASE_CONDITION_H_ */

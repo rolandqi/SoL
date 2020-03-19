@@ -1,19 +1,19 @@
 /*
- * EventLoopThread.h
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-17 14:19:12
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-17 17:38:31
  */
-
 #ifndef NET_EVENTLOOPTHREAD_H_
 #define NET_EVENTLOOPTHREAD_H_
-#include "base/Condition.h"
-#include "base/MutexLock.h"
-#include "base/Thread.h"
-#include "base/noncopyable.h"
+
+#include "../base/Condition.h"
+#include "../base/Mutex.h"
+#include "../base/Thread.h"
 #include "EventLoop.h"
 
-class EventLoopThread :noncopyable
+class EventLoopThread
 {
 public:
     EventLoopThread();
@@ -24,9 +24,9 @@ private:
     void threadFunc();
     EventLoop *loop_;
     bool exiting_;
-    Thread thread_;
-    MutexLock mutex_;
-    Condition cond_;
+    base::Thread thread_;
+    base::MutexLock mutex_;
+    base::Condition cond_;
 };
 
 

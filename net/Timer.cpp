@@ -1,20 +1,19 @@
 /*
- * Timer.cpp
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-17 09:52:09
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-17 11:48:56
  */
-
-
 #include "Timer.h"
 #include <sys/time.h>
 #include <unistd.h>
 #include <queue>
 
 
-TimerNode::TimerNode(std::shared_ptr<HttpData> requestData, int timeout)
+TimerNode::TimerNode(std::shared_ptr<Channel> requestData, int timeout)
 :   deleted_(false),
-    SPHttpData(requestData)
+    request_data(requestData)
 {
     struct timeval now;
     gettimeofday(&now, NULL);
@@ -24,12 +23,14 @@ TimerNode::TimerNode(std::shared_ptr<HttpData> requestData, int timeout)
 
 TimerNode::~TimerNode()
 {
-    if (SPHttpData)
-        SPHttpData->handleClose();
+    if (request_data)
+    {
+        // request_data->handleClose();  //TODO
+    }
 }
 
 TimerNode::TimerNode(TimerNode &tn):
-    SPHttpData(tn.SPHttpData)
+    request_data(tn.request_data)
 { }
 
 
@@ -56,7 +57,7 @@ bool TimerNode::isValid()
 
 void TimerNode::clearReq()
 {
-    SPHttpData.reset();
+    // request_data.reset(); //TODO
     this->setDeleted();
 }
 
@@ -67,11 +68,11 @@ TimerManager::TimerManager()
 TimerManager::~TimerManager()
 { }
 
-void TimerManager::addTimer(std::shared_ptr<HttpData> SPHttpData, int timeout)
+void TimerManager::addTimer(std::shared_ptr<Channel> requestData, int timeout)
 {
-    SPTimerNode new_node(new TimerNode(SPHttpData, timeout));
+    SPTimerNode new_node(new TimerNode(requestData, timeout));
     timerNodeQueue.push(new_node);
-    SPHttpData->linkTimer(new_node);
+    // requestData->linkTimer(new_node);  TODO link timer to Channel
 }
 
 
@@ -79,7 +80,7 @@ void TimerManager::addTimer(std::shared_ptr<HttpData> SPHttpData, int timeout)
 
 void TimerManager::handleExpiredEvent()
 {
-    //MutexLockGuard locker(lock);
+    base::MutexLockGuard locker(lock_);
     while (!timerNodeQueue.empty())
     {
         SPTimerNode ptimer_now = timerNodeQueue.top();
@@ -91,4 +92,3 @@ void TimerManager::handleExpiredEvent()
             break;
     }
 }
-

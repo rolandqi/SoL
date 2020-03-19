@@ -1,40 +1,55 @@
-# MAINSOURCE代表含有main入口函数的cpp文件，因为含有测试代码，
-# 所以要为多个目标编译，这里把Makefile写的通用了一点，
-# 以后加东西Makefile不用做多少改动
-MAINSOURCE := Main.cpp tests/HTTPClient.cpp
-# MAINOBJS := $(patsubst %.cpp,%.o,$(MAINSOURCE))
-SOURCE  := $(wildcard net/*.cpp base/*.cpp tests/*.cpp)
-override SOURCE := $(filter-out $(MAINSOURCE),$(SOURCE))
-OBJS    := $(patsubst %.cpp,%.o,$(SOURCE))
+# target macros
+TARGET := echoServer.exe  # echoServer echoClient
+MAIN_SRC := echoServer.cpp  # echoServer echoClient
 
-TARGET  := SoL
-CC      := g++
-LIBS    := -lpthread
-INCLUDE:= -I./usr/local/lib
-CFLAGS  := -std=c++11 -g -Wall -O3 -D_PTHREADS
-CXXFLAGS:= $(CFLAGS)
+# compile macros
+DIRS := base net
+OBJS := # FILL: only the objects in current dir, and do not include the one contains `main()`
 
-# Test object
-SUBTARGET1 := HTTPClient
+# intermedia compile marcros
+# NOTE: ALL_OBJS are intentionally left blank, no need to fill it
+ALL_OBJS := 
+CLEAN_FILES := $(TARGET) $(OBJS)
+DIST_CLEAN_FILES := $(OBJS)
 
-.PHONY : objs clean veryclean rebuild all tests debug
-all : $(TARGET) $(SUBTARGET1)
-objs : $(OBJS)
-rebuild: veryclean all
+# recursive wildcard
+rwildcard=$(foreach d,$(wildcard $(addsuffix *,$(1))),$(call rwildcard,$(d)/,$(2))$(filter $(subst *,%,$(2)),$(d)))
 
-tests : $(SUBTARGET1)
-clean :
-	find . -name '*.o' | xargs rm -f
-veryclean :
-	find . -name '*.o' | xargs rm -f
-	find . -name $(TARGET) | xargs rm -f
-	find . -name $(SUBTARGET1) | xargs rm -f
-debug:
-	@echo $(SOURCE)
+# default target
+default: show-info all
 
-$(TARGET) : $(OBJS) Main.o
-	$(CC) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LIBS)
-# $@代表目标，这里是$(TARGET)
+# non-phony targets
+$(TARGET): build-subdirs $(OBJS) find-all-objs
+	@echo -e "\t" CC $(CCFLAG) $(ALL_OBJS) $(MAIN_SRC) -o $@
+	@$(CC) $(CCFLAG) $(ALL_OBJS) $(MAIN_SRC) -o $@
 
-$(SUBTARGET1) : $(OBJS) tests/HTTPClient.o
-	$(CC) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LIBS)
+# phony targets
+.PHONY: all
+all: $(TARGET)
+	@echo Target $(TARGET) build finished.
+
+.PHONY: clean
+clean: clean-subdirs
+	@echo CLEAN $(CLEAN_FILES)
+	@rm -f $(CLEAN_FILES)
+
+.PHONY: distclean
+distclean: clean-subdirs
+	@echo CLEAN $(DIST_CLEAN_FILES)
+	@rm -f $(DIST_CLEAN_FILES)
+
+# phony funcs
+.PHONY: find-all-objs
+find-all-objs:
+	$(eval ALL_OBJS += $(call rwildcard,$(DIRS),*.o))
+
+.PHONY: show-info
+show-info:
+	@echo Building Project
+
+# need to be placed at the end of the file
+mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
+export PROJECT_PATH := $(patsubst %/,%,$(dir $(mkfile_path)))
+export MAKE_INCLUDE=$(PROJECT_PATH)/config/make.global
+export SUB_MAKE_INCLUDE=$(PROJECT_PATH)/config/submake.global
+include $(MAKE_INCLUDE)

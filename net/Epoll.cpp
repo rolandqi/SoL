@@ -1,15 +1,16 @@
 /*
- * Epoll.cpp
- *
- *  Created on: Aug 21, 2019
- *      Author: kaiqi
+ * @Description: qikai's network library
+ * @Author: qikai
+ * @Date: 2019-10-16 15:22:57
+ * @LastEditors: qikai
+ * @LastEditTime: 2019-10-18 11:31:07
  */
-
+#include "Epoll.h"
+#include <assert.h>
+#include <iostream>
 
 const int EVENTSNUM = 4096;
 const int EPOLLWAIT_TIME = 10000;
-
-typedef shared_ptr<Channel> SP_Channel;
 
 Epoll::Epoll():
     epollFd_(epoll_create1(EPOLL_CLOEXEC)),
@@ -28,11 +29,11 @@ void Epoll::epoll_add(SP_Channel request, int timeout)
     if (timeout > 0)
     {
         add_timer(request, timeout);
-        fd2http_[fd] = request->getHolder();
     }
     struct epoll_event event;
     event.data.fd = fd;
     event.events = request->getEvents();
+    // LOG_INFO << "epoll add fd " << fd << " events: " << event.events;
 
     request->EqualAndUpdateLastEvents();
 
@@ -79,30 +80,26 @@ void Epoll::epoll_del(SP_Channel request)
         perror("epoll_del error");
     }
     fd2chan_[fd].reset();
-    fd2http_[fd].reset();
 }
 
 // 返回活跃事件数
-std::vector<SP_Channel> Epoll::poll()
+void Epoll::poll(int timeoutMs, vector<SP_Channel>* activeChannels)
 {
-    while (true)
-    {
-        int event_count = epoll_wait(epollFd_, &*events_.begin(), events_.size(), EPOLLWAIT_TIME);
-        if (event_count < 0)
-            perror("epoll wait error");
-        std::vector<SP_Channel> req_data = getEventsRequest(event_count);
-        if (req_data.size() > 0)
-            return req_data;
-    }
+    int event_count = epoll_wait(epollFd_, &*events_.begin(), events_.size(), timeoutMs);
+    if (event_count < 0)
+        perror("epoll wait error");
+    std::vector<shared_ptr<Channel>> requests = getEventsRequest(event_count);
+    activeChannels->assign(requests.begin(), requests.end());
 }
 
 void Epoll::handleExpired()
 {
-    timerManager_.handleExpiredEvent();
+    // TODO handle expire events.
+    // timerManager_.handleExpiredEvent();
 }
 
 // 分发处理函数
-std::vector<SP_Channel> Epoll::getEventsRequest(int events_num)
+std::vector<shared_ptr<Channel>> Epoll::getEventsRequest(int events_num)
 {
     std::vector<SP_Channel> req_data;
     for(int i = 0; i < events_num; ++i)
@@ -116,13 +113,11 @@ std::vector<SP_Channel> Epoll::getEventsRequest(int events_num)
         {
             cur_req->setRevents(events_[i].events);
             cur_req->setEvents(0);
-            // 加入线程池之前将Timer和request分离
-            //cur_req->seperateTimer();
             req_data.push_back(cur_req);
         }
         else
         {
-            LOG << "SP cur_req is invalid";
+            LOG_INFO << "SP cur_req is invalid";
         }
     }
     return req_data;
@@ -130,10 +125,9 @@ std::vector<SP_Channel> Epoll::getEventsRequest(int events_num)
 
 void Epoll::add_timer(SP_Channel request_data, int timeout)
 {
-    shared_ptr<HttpData> t = request_data->getHolder();
-    if (t)
-        timerManager_.addTimer(t, timeout);
-    else
-        LOG << "timer add fail";
+    // TODO: adding timer mechenism to TCP link.
+    // if (request_data)  
+    //     timerManager_.addTimer(t, timeout);
+    // else
+    //     LOG_INFO << "timer add fail";
 }
-
