@@ -6,8 +6,10 @@
 #include <net/Channel.h>
 #include <net/EventLoop.h>
 
-#include <boost/bind.hpp>
-#include <boost/ptr_container/ptr_vector.hpp>
+// #include <boost/bind.hpp>
+// #include <boost/ptr_container/ptr_vector.hpp>
+#include <functional>
+#include <ptr_vector>
 
 #include <stdio.h>
 #include <sys/resource.h>
@@ -19,7 +21,7 @@ int numPipes;
 int numActive;
 int numWrites;
 EventLoop* g_loop;
-boost::ptr_vector<Channel> g_channels;
+std::ptr_vector<Channel> g_channels;
 
 int g_reads, g_writes, g_fired;
 

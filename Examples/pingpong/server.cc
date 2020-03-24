@@ -6,7 +6,7 @@
 #include <net/EventLoop.h>
 #include <net/InetAddress.h>
 
-#include <boost/bind.hpp>
+#include <functional>
 
 #include <utility>
 
