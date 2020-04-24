@@ -13,7 +13,6 @@ using std::placeholders::_3;
 using std::placeholders::_4;
 
 const char* IPADDRESS = "127.0.0.1";
-const int SERV_PORT = 8421;
 
 Client::Client(EventLoop *loop, int threadNum, int port)
 :   loop_(loop),

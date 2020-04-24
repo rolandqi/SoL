@@ -1,10 +1,8 @@
-#include <net/TcpServer.h>
+#include <net/Server.h>
 
-#include <base/Atomic.h>
 #include <base/logging.h>
 #include <base/Thread.h>
 #include <net/EventLoop.h>
-#include <net/InetAddress.h>
 
 #include <functional>
 
@@ -12,50 +10,65 @@
 
 #include <stdio.h>
 #include <unistd.h>
-
-void onConnection(const TcpConnectionPtr& conn)
+const int MAX_SIZE = 10240;
+using std::placeholders::_1;
+using std::placeholders::_2;
+struct PingPongContent
 {
-  if (conn->connected())
-  {
-    conn->setTcpNoDelay(true);
-  }
+    char size;
+    char body[MAX_SIZE];
+};
+
+void onConnection(const sockaddr_in& request)
+{
+  LOG_INFO << "Connect one client from port: " << request.sin_port;
 }
 
-void onMessage(const TcpConnectionPtr& conn, Buffer* buf, Timestamp)
+void onMessage(const int& fd)
 {
-  conn->send(buf);
+    PingPongContent myContent;
+    // receive data: 1 byte length + data.
+    int nread = readn(fd, &myContent.size, 1);  // read out the lenth of the data.
+    if (nread != 1)
+    {
+        LOG_INFO << "Receiving data error in fd: " << fd;
+    }
+    nread = readn(fd, myContent.body, myContent.size);
+    if (myContent.size > 0)
+    {
+        LOG_INFO << "receiving data size: "<< static_cast<int>(myContent.size);
+    }
+    if (nread != myContent.size)
+    {
+        LOG_INFO << "Receiving data error in fd: " << fd;
+    }
+
+    // echo back
+    int nwrite = writen(fd, reinterpret_cast<char*>(&myContent), static_cast<int>(myContent.size) + 1);
+    if (nwrite != myContent.size + 1)
+    {
+        LOG_INFO << "write failed! write size: " << nwrite;
+    }
 }
 
 int main(int argc, char* argv[])
 {
   if (argc < 4)
   {
-    fprintf(stderr, "Usage: server <address> <port> <threads>\n");
+    fprintf(stderr, "Usage: server <port> <threads>\n");
   }
   else
   {
-    LOG_INFO << "pid = " << getpid() << ", tid = " << CurrentThread::tid();
-    Logger::setLogLevel(Logger::WARN);
-
-    const char* ip = argv[1];
-    uint16_t port = static_cast<uint16_t>(atoi(argv[2]));
-    InetAddress listenAddr(ip, port);
-    int threadCount = atoi(argv[3]);
+    uint16_t port = static_cast<uint16_t>(atoi(argv[1]));
+    int threadCount = atoi(argv[2]);
 
     EventLoop loop;
 
-    TcpServer server(&loop, listenAddr, "PingPong");
+    Server server(&loop, threadCount, port);
 
     server.setConnectionCallback(onConnection);
     server.setMessageCallback(onMessage);
-
-    if (threadCount > 1)
-    {
-      server.setThreadNum(threadCount);
-    }
-
     server.start();
-
     loop.loop();
   }
 }

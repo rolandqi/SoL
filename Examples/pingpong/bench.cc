@@ -5,27 +5,33 @@
 #include <base/Thread.h>
 #include <net/Channel.h>
 #include <net/EventLoop.h>
+#include <sys/epoll.h>
 
 // #include <boost/bind.hpp>
 // #include <boost/ptr_container/ptr_vector.hpp>
 #include <functional>
-#include <ptr_vector>
+#include <memory>
 
 #include <stdio.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 
+using namespace base;
+using std::placeholders::_1;
+using std::placeholders::_2;
+using std::placeholders::_3;
+using std::placeholders::_4;
 
 std::vector<int> g_pipes;
 int numPipes;
 int numActive;
 int numWrites;
 EventLoop* g_loop;
-std::ptr_vector<Channel> g_channels;
+std::vector<std::shared_ptr<Channel>> g_channels;
 
 int g_reads, g_writes, g_fired;
 
-void readCallback(Timestamp, int fd, int idx)
+void readCallback(int _fd, int fd, int idx)
 {
   char ch;
 
@@ -41,10 +47,10 @@ void readCallback(Timestamp, int fd, int idx)
     g_writes--;
     g_fired++;
   }
-  if (g_fired == g_reads)
-  {
-    g_loop->quit();
-  }
+  // if (g_fired == g_reads)
+  // {
+  //   g_loop->quit();
+  // }
 }
 
 std::pair<int, int> runOnce()
@@ -52,9 +58,9 @@ std::pair<int, int> runOnce()
   Timestamp beforeInit(Timestamp::now());
   for (int i = 0; i < numPipes; ++i)
   {
-    Channel& channel = g_channels[i];
-    channel.setReadCallback(boost::bind(readCallback, _1, channel.fd(), i));
-    channel.enableReading();
+    auto channel = g_channels[i];
+    channel->setReadHandler(std::bind(readCallback, _1, channel->getFd(), i));
+    channel->setEvents(EPOLLIN | EPOLLPRI | EPOLLET); 
   }
 
   int space = numPipes / numActive;
@@ -124,8 +130,7 @@ int main(int argc, char* argv[])
 
   for (int i = 0; i < numPipes; ++i)
   {
-    Channel* channel = new Channel(&loop, g_pipes[i*2]);
-    g_channels.push_back(channel);
+    g_channels.push_back(make_shared<Channel>(&loop, g_pipes[i*2]));
   }
 
   for (int i = 0; i < 25; ++i)

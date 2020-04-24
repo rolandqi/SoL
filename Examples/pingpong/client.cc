@@ -1,31 +1,39 @@
-#include <net/TcpClient.h>
+#include <net/Client.h>
 #include <base/logging.h>
 #include <base/Thread.h>
 #include <net/EventLoop.h>
 #include <net/EventLoopThreadPool.h>
-#include <net/InetAddress.h>
-
+#include <base/Atomic.h>
 // #include <boost/bind.hpp>
 // #include <boost/ptr_container/ptr_vector.hpp>
 #include <functional>
-#include <ptr_vector>
+#include <memory>
 
 #include <utility>
 
 #include <stdio.h>
 #include <unistd.h>
+#include <algorithm>
+#include <memory>
+
+#define MAX_SIZE 1024
 
 
-class Client;
+class PingpongClient;
+struct PingPongContent
+{
+    char size;
+    char body[MAX_SIZE];
+};
 
-class Session : boost::noncopyable
+class Session
 {
  public:
   Session(EventLoop* loop,
-          const InetAddress& serverAddr,
+          int port,
           const string& name,
-          Client* owner)
-    : client_(loop, serverAddr, name),
+          PingpongClient* owner)
+    : client_(loop, 1, port),
       owner_(owner),
       bytesRead_(0),
       bytesWritten_(0),
@@ -34,17 +42,18 @@ class Session : boost::noncopyable
     client_.setConnectionCallback(
         std::bind(&Session::onConnection, this, _1));
     client_.setMessageCallback(
-        std::bind(&Session::onMessage, this, _1, _2, _3));
+        std::bind(&Session::onMessage, this, _1));
+    start();
   }
 
   void start()
   {
-    client_.connect();
+    client_.start();
   }
 
   void stop()
   {
-    client_.disconnect();
+    client_.~Client();
   }
 
   int64_t bytesRead() const
@@ -59,38 +68,33 @@ class Session : boost::noncopyable
 
  private:
 
-  void onConnection(const TcpConnectionPtr& conn);
+  void onConnection(const int& fd);
 
-  void onMessage(const TcpConnectionPtr& conn, Buffer* buf, Timestamp)
-  {
-    ++messagesRead_;
-    bytesRead_ += buf->readableBytes();
-    bytesWritten_ += buf->readableBytes();
-    conn->send(buf);
-  }
+  void onMessage(int fd);
 
-  TcpClient client_;
-  Client* owner_;
+  Client client_;
+  PingpongClient* owner_;
   int64_t bytesRead_;
   int64_t bytesWritten_;
   int64_t messagesRead_;
 };
 
-class Client : boost::noncopyable
+class PingpongClient
 {
  public:
-  Client(EventLoop* loop,
-         const InetAddress& serverAddr,
+  PingpongClient(EventLoop* loop,
+         int port,
          int blockSize,
          int sessionCount,
          int timeout,
          int threadCount)
     : loop_(loop),
       threadPool_(loop),
+      blockSize_(blockSize),
       sessionCount_(sessionCount),
       timeout_(timeout)
   {
-    loop->runAfter(timeout, std::bind(&Client::handleTimeout, this));
+    loop->runAfter(timeout, std::bind(&PingpongClient::handleTimeout, this));
     if (threadCount > 1)
     {
       threadPool_.setThreadNum(threadCount);
@@ -106,7 +110,7 @@ class Client : boost::noncopyable
     {
       char buf[32];
       snprintf(buf, sizeof buf, "C%05d", i);
-      Session* session = new Session(threadPool_.getNextLoop(), serverAddr, buf, this);
+      shared_ptr<Session> session(threadPool_.getNextLoop(), port, buf, this);
       session->start();
       sessions_.push_back(session);
     }
@@ -117,6 +121,11 @@ class Client : boost::noncopyable
     return message_;
   }
 
+  const int blockSize() const
+  {
+    return blockSize_;
+  }
+
   void onConnect()
   {
     if (numConnected_.incrementAndGet() == sessionCount_)
@@ -125,7 +134,7 @@ class Client : boost::noncopyable
     }
   }
 
-  void onDisconnect(const TcpConnectionPtr& conn)
+  void onDisconnect(const int& fd)
   {
     if (numConnected_.decrementAndGet() == 0)
     {
@@ -133,8 +142,7 @@ class Client : boost::noncopyable
 
       int64_t totalBytesRead = 0;
       int64_t totalMessagesRead = 0;
-      for (std::ptr_vector<Session>::iterator it = sessions_.begin();
-          it != sessions_.end(); ++it)
+      for (auto it = sessions_.begin(); it != sessions_.end(); ++it)
       {
         totalBytesRead += it->bytesRead();
         totalMessagesRead += it->messagesRead();
@@ -160,56 +168,83 @@ class Client : boost::noncopyable
   {
     LOG_WARN << "stop";
     std::for_each(sessions_.begin(), sessions_.end(),
-                  boost::mem_fn(&Session::stop));
+                  std::mem_fn(&Session::stop));
   }
 
   EventLoop* loop_;
   EventLoopThreadPool threadPool_;
   int sessionCount_;
   int timeout_;
-  std::ptr_vector<Session> sessions_;
+  std::vector<std::stared_ptr<Session>> sessions_;
   string message_;
+  int blockSize_;
   AtomicInt32 numConnected_;
 };
 
-void Session::onConnection(const TcpConnectionPtr& conn)
+void Session::onConnection(const int& fd)
 {
-  if (conn->connected())
-  {
-    conn->setTcpNoDelay(true);
-    conn->send(owner_->message());
+    LOG_INFO << "Server connected!";
     owner_->onConnect();
-  }
-  else
-  {
-    owner_->onDisconnect(conn);
-  }
+    PingPongContent myContent;
+    myContent.size = owner_->blockSize();
+    memmove(&myContent.body, owner_->message().c_str(), owner_->blockSize());
+
+    int nwrite = writen(fd, reinterpret_cast<char*>(&myContent), static_cast<int>(myContent.size) + 1);
+    if (nwrite != myContent.size + 1)
+    {
+        LOG_INFO << "write failed!";
+    }
 }
 
 int main(int argc, char* argv[])
 {
   if (argc != 7)
   {
-    fprintf(stderr, "Usage: client <host_ip> <port> <threads> <blocksize> ");
+    fprintf(stderr, "Usage: client <port> <threads> <blocksize> ");
     fprintf(stderr, "<sessions> <time>\n");
   }
   else
   {
-    LOG_INFO << "pid = " << getpid() << ", tid = " << CurrentThread::tid();
-    Logger::setLogLevel(Logger::WARN);
-
-    const char* ip = argv[1];
-    uint16_t port = static_cast<uint16_t>(atoi(argv[2]));
-    int threadCount = atoi(argv[3]);
-    int blockSize = atoi(argv[4]);
-    int sessionCount = atoi(argv[5]);
-    int timeout = atoi(argv[6]);
+    uint16_t port = static_cast<uint16_t>(atoi(argv[1]));
+    int threadCount = atoi(argv[2]);
+    int blockSize = atoi(argv[3]);
+    int sessionCount = atoi(argv[4]);
+    int timeout = atoi(argv[5]);
 
     EventLoop loop;
-    InetAddress serverAddr(ip, port);
 
-    Client client(&loop, serverAddr, blockSize, sessionCount, timeout, threadCount);
+    PingpongClient client(&loop, port, blockSize, sessionCount, timeout, threadCount);
     loop.loop();
   }
 }
 
+  void Session::onMessage(int fd)
+  {
+    PingPongContent myContent;
+    // receive data: 1 byte length + data.
+    int nread = readn(fd, &myContent.size, 1);  // read out the lenth of the data.
+    if (nread < 0)
+    {
+        LOG_INFO << "Receiving data error in fd: " << fd;
+        owner_->onDisconnect(fd);
+    }
+    nread = readn(fd, myContent.body, myContent.size);
+    if (myContent.size > 0)
+    {
+        LOG_INFO << "receiving data size: "<< static_cast<int>(myContent.size);
+    }
+    if (nread != myContent.size)
+    {
+        LOG_INFO << "Receiving data error in fd: " << fd;
+    }
+
+    // echo back
+    int nwrite = writen(fd, reinterpret_cast<char*>(&myContent), static_cast<int>(myContent.size) + 1);
+    if (nwrite != myContent.size + 1)
+    {
+        LOG_INFO << "write failed! write size: " << nwrite;
+    }
+    bytesWritten_ += myContent.size;
+    messagesRead_++;
+    bytesRead_ += myContent.size;
+  }
