@@ -7,6 +7,15 @@
  */
 #include "net/EventLoop.h"
 #include "net/Server.h"
+#include <bsoncxx/json.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/stdx.hpp>
+#include <mongocxx/uri.hpp>
+#include <bsoncxx/builder/basic/document.hpp>
+#include <bsoncxx/builder/basic/kvp.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+#include <bsoncxx/builder/stream/document.hpp>
 
 const int PORT = 8421;
 const int MAX_SIZE = 20;
@@ -18,7 +27,24 @@ struct echoContent
     char size;
     char body[MAX_SIZE];
 };
+mongocxx::instance instance{}; // This should be done only once.
 
+int mongoInsert(char* str)
+{
+    mongocxx::client client{mongocxx::uri{"mongodb://localhost:27017"}};  // mongodbhost
+    mongocxx::database db = client["echoServer"];  // access a data base
+    mongocxx::collection coll = db["data"];  // access a Collection
+    auto builder = bsoncxx::builder::stream::document{};
+    bsoncxx::document::value doc_value = builder
+    << "name" << "UDISK"
+    << "type" << "SSD"
+    << "info" << str
+    << bsoncxx::builder::stream::finalize;
+    bsoncxx::document::view view = doc_value.view();
+    auto result = coll.insert_one(view);
+    // cout<< "Insertion id: " << result.inserted_id() << endl;
+    return 0;
+}
 
 void echoServerRead(const int& fd)
 {
