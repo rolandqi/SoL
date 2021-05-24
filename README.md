@@ -3,7 +3,7 @@
 - [README](#readme)
   - [简介](#简介)
   - [项目进展](#项目进展)
-    - [Ver1.0实现的功能](#ver10实现的功能)
+    - [Ver0.1实现的功能](#ver01实现的功能)
     - [正式版本](#正式版本)
   - [延伸](#延伸)
 
@@ -27,7 +27,7 @@ Welcome to SoL(Server on Linux). I init this repo to practice net programming on
 
 ## 项目进展
 
-### Ver1.0实现的功能
+### Ver0.1实现的功能
 
 - 项目位于`Examples\Ver0.1`下
 - 实现了如下功能：
